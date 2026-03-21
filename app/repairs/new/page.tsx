@@ -3,15 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 
-const DEVICE_TYPES = [
-  "Smartphone",
-  "Tablet",
-  "Smartwatch",
-  "Laptop",
-  "PC",
-  "Konsole",
-  "Sonstiges",
-];
+const DEVICE_TYPES = ["Smartphone", "Tablet", "Smartwatch", "Laptop", "PC", "Konsole", "Sonstiges"];
 
 type CustomerResult = {
   id: string;
@@ -23,10 +15,21 @@ type CustomerResult = {
   customer_code: string | null;
 };
 
+function InputField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+        {label}{required && <span className="text-rose-400 ml-1">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputClass = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition";
+
 export default function NewRepairPage() {
   const [loading, setLoading] = useState(false);
-
-  // Kundensuche
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CustomerResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -34,14 +37,12 @@ export default function NewRepairPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Kundenfelder
   const [kundenName, setKundenName] = useState("");
   const [kundenTelefon, setKundenTelefon] = useState("");
   const [kundenEmail, setKundenEmail] = useState("");
   const [kundenAdresse, setKundenAdresse] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
 
-  // Klick außerhalb → Dropdown schließen
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -52,13 +53,8 @@ export default function NewRepairPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Kundensuche
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
+    if (searchQuery.length < 2) { setSearchResults([]); setShowDropdown(false); return; }
     const timeout = setTimeout(async () => {
       setSearching(true);
       try {
@@ -66,11 +62,8 @@ export default function NewRepairPage() {
         const data = await res.json();
         setSearchResults(data.customers ?? []);
         setShowDropdown(true);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
-      }
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
     }, 300);
     return () => clearTimeout(timeout);
   }, [searchQuery]);
@@ -100,96 +93,72 @@ export default function NewRepairPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-
     try {
       const formData = new FormData(e.currentTarget);
-      // Kundenfelder manuell setzen (aus state)
       formData.set("kunden_name", kundenName);
       formData.set("kunden_telefon", kundenTelefon);
       formData.set("kunden_email", kundenEmail);
       formData.set("kunden_adresse", kundenAdresse);
       if (customerId) formData.set("customer_id", customerId);
 
-      const res = await fetch("/api/repairs/create", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch("/api/repairs/create", { method: "POST", body: formData });
       const contentType = res.headers.get("content-type") || "";
       const text = await res.text();
-      const result =
-        contentType.includes("application/json") && text
-          ? JSON.parse(text)
-          : { ok: false, error: { message: "Non-JSON response", detail: text } };
+      const result = contentType.includes("application/json") && text ? JSON.parse(text) : { ok: false, error: { message: text } };
 
-      if (res.ok && result.ok) {
-        window.location.href = `/repairs/${result.id}`;
-        return;
-      }
-
-      alert(result?.error?.message || `Fehler beim Speichern (${res.status})`);
+      if (res.ok && result.ok) { window.location.href = `/repairs/${result.id}`; return; }
+      alert(result?.error?.message || `Fehler (${res.status})`);
     } catch (err: unknown) {
-      alert(`Fehler beim Speichern: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setLoading(false);
-    }
+      alert(`Fehler: ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setLoading(false); }
   }
 
   return (
-    <main className="min-h-screen bg-[#11131a] text-white px-4 py-6 md:px-6 xl:px-8">
+    <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
+      {/* Glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
+      </div>
+
       <div className="w-full space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="inline-flex rounded-full border border-slate-700/60 bg-slate-700/30 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200">
-              REPARATUR · ANNAHME
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
+              🪛 REPARATUR · ANNAHME
             </div>
-            <h1 className="mt-4 text-3xl font-bold tracking-tight">Neuer Reparaturauftrag</h1>
-            <p className="mt-2 text-sm text-slate-400">
-              Gerät annehmen, Kundendaten erfassen und Auftrag direkt anlegen.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Neuer Reparaturauftrag</h1>
+            <p className="mt-1 text-sm text-slate-500">Gerät annehmen, Kunde verknüpfen und Auftrag anlegen.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/repairs"
-              className="rounded-xl border border-slate-700/60 bg-[#181c24] px-4 py-2 text-sm text-slate-200 transition hover:bg-[#1d2330]"
-            >
-              Abbrechen
-            </Link>
-          </div>
+          <Link href="/repairs" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
+            Abbrechen
+          </Link>
         </div>
 
         <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-          <div className="space-y-6">
+          <div className="space-y-5">
 
-            {/* Kunde Section */}
-            <section className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
-              <div className="mb-5">
-                <h2 className="text-lg font-semibold text-white">Kunde</h2>
-                <p className="mt-1 text-sm text-slate-400">Bestehenden Kunden suchen oder neu eingeben</p>
-              </div>
+            {/* Kunde */}
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-1">Kunde</h2>
+              <p className="text-sm text-slate-500 mb-5">Bestehenden Kunden suchen oder neu eingeben</p>
 
-              {/* Kundensuche */}
+              {/* Suche */}
               <div ref={searchRef} className="relative mb-5">
-                <label className="mb-2 block text-sm font-medium text-slate-300">
-                  🔍 Kunde suchen
-                </label>
+                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">🔍 Kunde suchen</label>
 
                 {selectedCustomer ? (
-                  // Ausgewählter Kunde
-                  <div className="flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
+                  <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                     <div>
-                      <div className="text-sm font-medium text-emerald-200">
+                      <div className="text-sm font-medium text-emerald-300">
                         ✓ {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}
                       </div>
-                      <div className="mt-0.5 text-xs text-emerald-300/70">
+                      <div className="text-xs text-emerald-400/60 mt-0.5">
                         {selectedCustomer.customer_code} · {selectedCustomer.phone ?? "Kein Tel."}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={clearCustomer}
-                      className="ml-4 rounded-lg border border-slate-700/60 bg-[#181c24] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-[#1d2330]"
-                    >
+                    <button type="button" onClick={clearCustomer}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:text-white">
                       Ändern
                     </button>
                   </div>
@@ -200,31 +169,23 @@ export default function NewRepairPage() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                      placeholder="Name, Telefon oder E-Mail eingeben..."
-                      className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500/60 transition"
+                      placeholder="Name, Telefon oder E-Mail..."
+                      className={inputClass}
                     />
-
-                    {/* Dropdown */}
                     {showDropdown && (
-                      <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-700/60 bg-[#181c24] shadow-2xl overflow-hidden">
+                      <div className="absolute z-50 mt-2 w-full rounded-2xl border border-white/10 bg-[#181c24] shadow-2xl overflow-hidden">
                         {searching ? (
-                          <div className="px-4 py-3 text-sm text-slate-400">Suche...</div>
+                          <div className="px-4 py-3 text-sm text-slate-500">Suche...</div>
                         ) : searchResults.length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-slate-500">Kein Kunde gefunden – Daten unten manuell eingeben</div>
+                          <div className="px-4 py-3 text-sm text-slate-600">Kein Kunde gefunden – manuell eingeben</div>
                         ) : (
                           searchResults.map((c) => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => selectCustomer(c)}
-                              className="w-full px-4 py-3 text-left transition hover:bg-[#1d2330] border-b border-slate-800/80 last:border-0"
-                            >
+                            <button key={c.id} type="button" onClick={() => selectCustomer(c)}
+                              className="w-full px-4 py-3 text-left transition hover:bg-white/5 border-b border-white/5 last:border-0">
                               <div className="text-sm font-medium text-white">
                                 {[c.first_name, c.last_name].filter(Boolean).join(" ") || "Unbenannt"}
                               </div>
-                              <div className="mt-0.5 text-xs text-slate-400">
-                                {c.phone ?? "—"} · {c.email ?? "—"}
-                              </div>
+                              <div className="text-xs text-slate-500 mt-0.5">{c.phone ?? "—"} · {c.email ?? "—"}</div>
                             </button>
                           ))
                         )}
@@ -236,147 +197,102 @@ export default function NewRepairPage() {
 
               {/* Manuelle Felder */}
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Name / Firma <span className="text-rose-300">*</span>
-                  </label>
-                  <input
-                    value={kundenName}
-                    onChange={(e) => setKundenName(e.target.value)}
-                    required
-                    className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500/60 transition"
-                    placeholder="Max Mustermann"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Telefon</label>
-                  <input
-                    value={kundenTelefon}
-                    onChange={(e) => setKundenTelefon(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500/60 transition"
-                    placeholder="+49 ..."
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">E-Mail</label>
-                  <input
-                    type="email"
-                    value={kundenEmail}
-                    onChange={(e) => setKundenEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500/60 transition"
-                    placeholder="email@beispiel.de"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Adresse</label>
-                  <input
-                    value={kundenAdresse}
-                    onChange={(e) => setKundenAdresse(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500/60 transition"
-                    placeholder="Straße, PLZ Stadt"
-                  />
-                </div>
+                <InputField label="Name / Firma" required>
+                  <input value={kundenName} onChange={(e) => setKundenName(e.target.value)} required placeholder="Max Mustermann" className={inputClass} />
+                </InputField>
+                <InputField label="Telefon">
+                  <input value={kundenTelefon} onChange={(e) => setKundenTelefon(e.target.value)} placeholder="+49 ..." className={inputClass} />
+                </InputField>
+                <InputField label="E-Mail">
+                  <input type="email" value={kundenEmail} onChange={(e) => setKundenEmail(e.target.value)} placeholder="email@beispiel.de" className={inputClass} />
+                </InputField>
+                <InputField label="Adresse">
+                  <input value={kundenAdresse} onChange={(e) => setKundenAdresse(e.target.value)} placeholder="Straße, PLZ Stadt" className={inputClass} />
+                </InputField>
               </div>
             </section>
 
             {/* Gerät */}
-            <section className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
-              <div className="mb-5">
-                <h2 className="text-lg font-semibold text-white">Gerät</h2>
-                <p className="mt-1 text-sm text-slate-400">Geräteinformationen für die Werkstatt</p>
-              </div>
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-1">Gerät</h2>
+              <p className="text-sm text-slate-500 mb-5">Geräteinformationen für die Werkstatt</p>
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Gerätetyp</label>
-                  <select
-                    name="geraetetyp"
-                    className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none"
-                    defaultValue=""
-                  >
+                <InputField label="Gerätetyp">
+                  <select name="geraetetyp" defaultValue="" className={inputClass + " cursor-pointer"}>
                     <option value="">Bitte wählen</option>
                     {DEVICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Hersteller</label>
-                  <input name="hersteller" className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none focus:border-violet-500/60 transition" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Modell</label>
-                  <input name="modell" className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none focus:border-violet-500/60 transition" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">IMEI / Seriennummer</label>
-                  <input name="imei" className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none focus:border-violet-500/60 transition" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Gerätecode / Muster</label>
-                  <input name="geraete_code" className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none focus:border-violet-500/60 transition" />
-                </div>
+                </InputField>
+                <InputField label="Hersteller">
+                  <input name="hersteller" placeholder="Apple, Samsung..." className={inputClass} />
+                </InputField>
+                <InputField label="Modell">
+                  <input name="modell" placeholder="iPhone 15, Galaxy S24..." className={inputClass} />
+                </InputField>
+                <InputField label="IMEI / Seriennummer">
+                  <input name="imei" placeholder="123456789012345" className={inputClass} />
+                </InputField>
+                <InputField label="Gerätecode / Muster">
+                  <input name="geraete_code" placeholder="PIN oder Muster" className={inputClass} />
+                </InputField>
               </div>
             </section>
 
-            {/* Reparatur */}
-            <section className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
-              <div className="mb-5">
-                <h2 className="text-lg font-semibold text-white">Reparatur</h2>
-                <p className="mt-1 text-sm text-slate-400">Fehlerbild und wichtige Hinweise</p>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-300">
-                  Problem / Fehlerbeschreibung <span className="text-rose-300">*</span>
-                </label>
+            {/* Problem */}
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-1">Reparatur</h2>
+              <p className="text-sm text-slate-500 mb-5">Fehlerbild und wichtige Hinweise</p>
+              <InputField label="Problem / Fehlerbeschreibung" required>
                 <textarea
                   name="reparatur_problem"
-                  rows={7}
+                  rows={6}
                   required
                   placeholder="z. B. Display gebrochen, lädt nicht, Wasserschaden ..."
-                  className="w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500/60 transition"
+                  className={inputClass + " resize-none"}
                 />
-              </div>
+              </InputField>
             </section>
           </div>
 
           {/* Rechte Spalte */}
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-white">Werkstatt-Info</h2>
-              </div>
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-4">Werkstatt-Info</h2>
               <div className="space-y-3">
                 {[
                   { label: "Startstatus", value: "Angenommen" },
-                  { label: "Nach dem Speichern", value: "Weiterleitung direkt in den Auftrag" },
-                  { label: "Journal", value: "Kann danach direkt ergänzt werden" },
+                  { label: "Nach dem Speichern", value: "Direkt in den Auftrag" },
+                  { label: "Journal", value: "Danach ergänzbar" },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">{item.label}</div>
-                    <div className="mt-1 text-sm font-medium text-slate-200">{item.value}</div>
+                  <div key={item.label} className="rounded-xl border border-white/6 bg-white/3 px-4 py-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-600">{item.label}</div>
+                    <div className="mt-1 text-sm font-medium text-slate-300">{item.value}</div>
                   </div>
                 ))}
               </div>
             </section>
 
-            <div className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.28)] xl:sticky xl:top-24">
+            {/* Submit sticky */}
+            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5 xl:sticky xl:top-24">
               <div className="mb-4">
                 <div className="text-base font-semibold text-white">Auftrag anlegen</div>
-                <div className="mt-1 text-sm text-slate-400">
+                <div className="mt-1 text-sm text-slate-500">
                   {selectedCustomer
-                    ? `Kunde: ${[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}`
-                    : "Neuer Kunde wird automatisch angelegt"}
+                    ? `✓ ${[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}`
+                    : "Neuer Kunde wird angelegt"}
                 </div>
               </div>
               <div className="space-y-3">
                 <button
                   disabled={loading}
                   type="submit"
-                  className="w-full rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:opacity-90 disabled:opacity-60"
+                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90 disabled:opacity-50"
                 >
                   {loading ? "Speichert..." : "Auftrag speichern"}
                 </button>
                 <Link
                   href="/repairs"
-                  className="block w-full rounded-xl border border-slate-700/60 bg-[#12161d] px-4 py-3 text-center text-sm font-semibold text-slate-200 transition hover:bg-[#171c25]"
+                  className="block w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-400 transition hover:text-white hover:bg-white/8"
                 >
                   Zurück zur Übersicht
                 </Link>

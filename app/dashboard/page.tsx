@@ -11,9 +11,9 @@ function normalizeStatus(status: string | null) {
   const value = (status ?? "").trim().toLowerCase();
   if (["angenommen", "offen", "neu"].includes(value)) return "Angenommen";
   if (["in_diagnose", "in diagnose", "diagnose"].includes(value)) return "In Diagnose";
-  if (["rueckfrage_kunde", "rückfrage kunde", "rueckfrage kunde"].includes(value)) return "Rückfrage Kunde";
+  if (["rueckfrage_kunde", "rückfrage kunde"].includes(value)) return "Rückfrage Kunde";
   if (["ersatzteil_bestellt", "ersatzteil bestellt"].includes(value)) return "Ersatzteil bestellt";
-  if (["in_reparatur", "in reparatur", "in_arbeit", "reparatur"].includes(value)) return "In Reparatur";
+  if (["in_reparatur", "in reparatur", "in_arbeit"].includes(value)) return "In Reparatur";
   if (["abholbereit", "fertig"].includes(value)) return "Abholbereit";
   if (["abgeschlossen", "abgeholt"].includes(value)) return "Abgeschlossen";
   return "Angenommen";
@@ -24,9 +24,7 @@ function getMonthLabel(dateStr: string) {
   return d.toLocaleString("de-DE", { month: "short", year: "2-digit" });
 }
 
-type PageProps = {
-  searchParams: Promise<{ tab?: string }>;
-};
+type PageProps = { searchParams: Promise<{ tab?: string }> };
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const supabase = await createServerComponentClient();
@@ -36,33 +34,30 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const { tab } = await searchParams;
   const activeTab = tab === "statistik" ? "statistik" : "werkstatt";
 
-  // Reparaturen laden
   const { data: repairs, error } = await supabase
     .from("repairs")
     .select("id, auftragsnummer, status, kunden_name, hersteller, modell, geraetetyp, reparatur_problem, annahme_datum, updated_at, created_at")
     .order("annahme_datum", { ascending: false });
 
-  // Kundenzahl laden
   const { count: totalCustomers } = await supabase
     .from("customers")
     .select("*", { count: "exact", head: true });
 
   if (error) {
     return (
-      <main className="min-h-screen bg-[#11131a] text-white px-4 py-6 md:px-6 xl:px-8 space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <div className="rounded-2xl border border-red-400/20 bg-[#2a1618] p-4 text-red-200">
-          Fehler beim Laden: {error.message}
+      <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-300">
+          Fehler: {error.message}
         </div>
       </main>
     );
   }
 
   const allRepairs = repairs ?? [];
-
-  const items: DashboardRepair[] = (allRepairs as Omit<DashboardRepair, "boardStatus">[]).map((repair) => ({
-    ...repair,
-    boardStatus: normalizeStatus(repair.status),
+  const items: DashboardRepair[] = (allRepairs as Omit<DashboardRepair, "boardStatus">[]).map((r) => ({
+    ...r,
+    boardStatus: normalizeStatus(r.status),
   }));
 
   const openCount = items.filter((r) =>
@@ -71,10 +66,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const readyCount = items.filter((r) => r.boardStatus === "Abholbereit").length;
   const doneCount = items.filter((r) => r.boardStatus === "Abgeschlossen").length;
   const totalCount = items.length;
+  const inProgressCount = items.filter((r) =>
+    ["In Diagnose", "Ersatzteil bestellt", "In Reparatur", "Rückfrage Kunde"].includes(r.boardStatus)
+  ).length;
 
-  // --- Statistik Daten ---
-
-  // Status Verteilung
+  // Statistik Daten
   const STATUS_CONFIG = [
     { name: "Angenommen", color: "#f59e0b" },
     { name: "In Diagnose", color: "#3b82f6" },
@@ -84,19 +80,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     { name: "Abholbereit", color: "#10b981" },
     { name: "Abgeschlossen", color: "#475569" },
   ];
-
   const statusData = STATUS_CONFIG.map((s) => ({
     ...s,
     count: items.filter((r) => r.boardStatus === s.name).length,
   }));
 
-  // Aufträge pro Monat (letzte 6 Monate)
   const now = new Date();
   const monthlyMap: Record<string, number> = {};
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const label = d.toLocaleString("de-DE", { month: "short", year: "2-digit" });
-    monthlyMap[label] = 0;
+    monthlyMap[d.toLocaleString("de-DE", { month: "short", year: "2-digit" })] = 0;
   }
   allRepairs.forEach((r) => {
     if (!r.created_at) return;
@@ -105,87 +98,89 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   });
   const monthlyData = Object.entries(monthlyMap).map(([month, auftraege]) => ({ month, auftraege }));
 
-  // Beliebteste Hersteller
   const herstellerMap: Record<string, number> = {};
   allRepairs.forEach((r) => {
     const h = (r.hersteller ?? "Unbekannt").trim();
     herstellerMap[h] = (herstellerMap[h] ?? 0) + 1;
   });
   const herstellerData = Object.entries(herstellerMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
+    .sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([name, count]) => ({ name, count }));
 
-  // Durchschnittliche Reparaturdauer (annahme_datum → abgeschlossen updated_at)
-  const doneRepairs = allRepairs.filter((r) => {
-    const s = normalizeStatus(r.status);
-    return s === "Abgeschlossen" && r.annahme_datum && r.updated_at;
-  });
+  const doneRepairs = allRepairs.filter((r) => normalizeStatus(r.status) === "Abgeschlossen" && r.annahme_datum && r.updated_at);
   let avgDuration: number | null = null;
   if (doneRepairs.length > 0) {
     const totalDays = doneRepairs.reduce((sum, r) => {
-      const diff = new Date(r.updated_at!).getTime() - new Date(r.annahme_datum!).getTime();
-      return sum + diff / (1000 * 60 * 60 * 24);
+      return sum + (new Date(r.updated_at!).getTime() - new Date(r.annahme_datum!).getTime()) / 86400000;
     }, 0);
     avgDuration = Math.round(totalDays / doneRepairs.length);
   }
 
-  return (
-    <main className="min-h-screen bg-[#11131a] text-white p-6 space-y-6">
-      <div className="w-full space-y-6">
+  const kpiCards = [
+    { label: "Aktive Aufträge", value: openCount, color: "from-violet-600/20 to-violet-600/5", border: "border-violet-500/20", text: "text-violet-200" },
+    { label: "In Bearbeitung", value: inProgressCount, color: "from-indigo-600/20 to-indigo-600/5", border: "border-indigo-500/20", text: "text-indigo-200" },
+    { label: "Abholbereit", value: readyCount, color: "from-emerald-600/20 to-emerald-600/5", border: "border-emerald-500/20", text: "text-emerald-200" },
+    { label: "Gesamt", value: totalCount, sub: `${doneCount} abgeschlossen`, color: "from-slate-600/20 to-slate-600/5", border: "border-slate-500/20", text: "text-slate-200" },
+  ];
 
+  return (
+    <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
+      {/* Hintergrund Glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
+        <div className="absolute -top-60 left-1/3 w-[800px] h-[800px] rounded-full bg-violet-600/8 blur-[140px]" />
+        <div className="absolute top-1/2 right-0 w-[500px] h-[500px] rounded-full bg-indigo-600/6 blur-[120px]" />
+      </div>
+
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Werkstatt Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-400">Übersicht aller Reparaturaufträge für Starphone</p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+              WERKSTATT · LIVE
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+            <p className="mt-1 text-sm text-slate-500">Starphone Intern · {auth.user.email}</p>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-slate-500">Eingeloggt als</div>
-            <div className="text-sm font-medium text-slate-200">{auth.user.email}</div>
-          </div>
+          <Link
+            href="/repairs/new"
+            className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90"
+          >
+            + Neuer Auftrag
+          </Link>
         </div>
 
-        {/* KPI Karten */}
+        {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-4">
-            <div className="text-sm text-slate-400">Aktive Aufträge</div>
-            <div className="mt-2 text-3xl font-bold text-white">{openCount}</div>
-          </div>
-          <div className="rounded-2xl border border-violet-400/20 bg-[#1b1830] p-4">
-            <div className="text-sm text-violet-300/70">In Bearbeitung</div>
-            <div className="mt-2 text-3xl font-bold text-violet-200">
-              {items.filter((r) => ["In Diagnose", "Ersatzteil bestellt", "In Reparatur", "Rückfrage Kunde"].includes(r.boardStatus)).length}
+          {kpiCards.map((card) => (
+            <div
+              key={card.label}
+              className={`rounded-2xl border ${card.border} bg-gradient-to-br ${card.color} backdrop-blur-sm p-5`}
+            >
+              <div className="text-sm text-slate-400">{card.label}</div>
+              <div className={`mt-2 text-4xl font-bold ${card.text}`}>{card.value}</div>
+              {card.sub && <div className="mt-1 text-xs text-slate-500">{card.sub}</div>}
             </div>
-          </div>
-          <div className="rounded-2xl border border-emerald-400/20 bg-[#14261f] p-4">
-            <div className="text-sm text-emerald-300/70">Abholbereit</div>
-            <div className="mt-2 text-3xl font-bold text-emerald-200">{readyCount}</div>
-          </div>
-          <div className="rounded-2xl border border-slate-700/60 bg-[#181c24] p-4">
-            <div className="text-sm text-slate-400">Gesamt</div>
-            <div className="mt-2 text-3xl font-bold text-white">{totalCount}</div>
-            <div className="mt-2 text-xs text-slate-500">Abgeschlossen: {doneCount}</div>
-          </div>
+          ))}
         </div>
 
         {/* Tabs */}
-        <div className="inline-flex rounded-xl border border-slate-700/60 bg-[#181c24] p-1">
+        <div className="inline-flex rounded-xl border border-white/8 bg-white/4 backdrop-blur-sm p-1">
           <Link
             href="/dashboard"
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-lg px-5 py-2 text-sm font-medium transition ${
               activeTab === "werkstatt"
-                ? "bg-slate-100 text-slate-900"
+                ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            🪛Werkstatt
+            🪛 Werkstatt
           </Link>
-                  <Link
+          <Link
             href="/dashboard?tab=statistik"
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            className={`rounded-lg px-5 py-2 text-sm font-medium transition ${
               activeTab === "statistik"
-                ? "bg-slate-100 text-slate-900"
+                ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-400 hover:text-white"
             }`}
           >

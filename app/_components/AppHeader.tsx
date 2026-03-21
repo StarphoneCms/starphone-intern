@@ -25,6 +25,10 @@ function NavItem({ href, label }: { href: string; label: string }) {
 }
 
 export default function AppHeader() {
+  const pathname = usePathname();
+  
+  if (pathname === "/login") return null;
+
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#11131a]/90 backdrop-blur">
       <div className="w-full px-4 md:px-6 xl:px-8 py-4 flex items-center justify-between gap-6">
@@ -39,8 +43,6 @@ export default function AppHeader() {
           <NavItem href="/repairs" label="🪛 Reparaturen" />
           <NavItem href="/repairs/new" label="🆕 Reparatur starten" />
           <LogoutButton />
-          {/* später: customers, sales, inventory */}
-          {/* <NavItem href="/customers" label="Kunden" /> */}
         </nav>
       </div>
     </header>

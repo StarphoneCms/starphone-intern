@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerComponentClient } from "@/lib/supabase/server";
-import CustomersClient from "./CustomerClient";
+import CustomersClient from "./CustomersClient";
 
 type CustomerRow = {
   id: string;
@@ -46,9 +46,9 @@ export default async function CustomersPage() {
 
   if (customersError || repairsError) {
     return (
-      <main className="min-h-screen bg-[#11131a] text-white px-4 py-6">
+      <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6">
         <h1 className="text-3xl font-bold">Kunden</h1>
-        <div className="mt-4 rounded-2xl border border-rose-400/20 bg-[#2a1618] p-5 text-rose-200">
+        <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
           Fehler beim Laden der Kundendaten.
         </div>
       </main>
