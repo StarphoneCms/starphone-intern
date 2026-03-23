@@ -1,104 +1,138 @@
+"use client";
+
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createServerComponentClient } from "@/lib/supabase/server";
-import EditCustomerPanel from "./EditCustomerPanel";
-import NfcCodeDisplay from "./NfcCodeDisplay";
+import { useState, useRef, useEffect } from "react";
 
+const DEVICE_TYPES = ["Smartphone", "Tablet", "Smartwatch", "Laptop", "PC", "Konsole", "Sonstiges"];
 
-type Customer = {
+const QUICK_PROBLEMS = [
+  { label: "🖥️ Display gebrochen", text: "Display gebrochen / Displayschaden" },
+  { label: "🔋 Lädt nicht", text: "Gerät lädt nicht / Ladeproblem" },
+  { label: "💧 Wasserschaden", text: "Wasserschaden" },
+  { label: "🎙️ Mikro / Lautsprecher", text: "Mikrofon / Lautsprecher defekt" },
+  { label: "🔋 Akku tauschen", text: "Akku tauschen" },
+  { label: "📷 Kamera defekt", text: "Kamera defekt" },
+  { label: "🔒 PIN vergessen", text: "Entsperrt / PIN vergessen" },
+];
+
+type CustomerResult = {
   id: string;
-  customer_code: string | null;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
-  notes: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  customer_code: string | null;
 };
 
-type Repair = {
-  id: string;
-  auftragsnummer: string | null;
-  status: string | null;
-  annahme_datum: string | null;
-  created_at: string | null;
-  hersteller: string | null;
-  modell: string | null;
-  geraetetyp: string | null;
-  reparatur_problem: string | null;
-  customer_id: string | null;
-};
-
-function getCustomerName(customer: Customer) {
-  const full = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
-  return full || customer.customer_code || "Unbenannter Kunde";
+function InputField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
+        {label}{required && <span className="text-rose-400 ml-1">*</span>}
+      </label>
+      {children}
+    </div>
+  );
 }
 
-function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-}
+const inputClass = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition";
 
-function getStatusMeta(status: string | null) {
-  const value = (status ?? "").trim().toLowerCase();
-  if (value === "angenommen") return { label: "Angenommen", className: "border-amber-500/30 bg-amber-500/10 text-amber-300" };
-  if (["in_arbeit", "in_reparatur"].includes(value)) return { label: "In Reparatur", className: "border-violet-500/30 bg-violet-500/10 text-violet-300" };
-  if (["fertig", "abholbereit"].includes(value)) return { label: "Abholbereit", className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" };
-  if (["abgeholt", "abgeschlossen"].includes(value)) return { label: "Abgeschlossen", className: "border-slate-500/30 bg-slate-500/10 text-slate-400" };
-  if (value === "storniert") return { label: "Storniert", className: "border-rose-500/30 bg-rose-500/10 text-rose-300" };
-  return { label: status ?? "—", className: "border-white/15 bg-white/10 text-white/70" };
-}
+export default function NewRepairPage() {
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<CustomerResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const problemRef = useRef<HTMLTextAreaElement>(null);
 
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
-}
+  const [kundenName, setKundenName] = useState("");
+  const [kundenTelefon, setKundenTelefon] = useState("");
+  const [kundenEmail, setKundenEmail] = useState("");
+  const [kundenAdresse, setKundenAdresse] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [problem, setProblem] = useState("");
 
-export default async function CustomerDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const supabase = await createServerComponentClient();
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) redirect("/login");
+  useEffect(() => {
+    if (searchQuery.length < 2) { setSearchResults([]); setShowDropdown(false); return; }
+    const timeout = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        setSearchResults(data.customers ?? []);
+        setShowDropdown(true);
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
-  const [{ data: customer, error: customerError }, { data: repairs, error: repairsError }] =
-    await Promise.all([
-      supabase.from("customers").select("*").eq("id", id).single(),
-      supabase.from("repairs")
-        .select("id, auftragsnummer, status, annahme_datum, created_at, hersteller, modell, geraetetyp, reparatur_problem, customer_id")
-        .eq("customer_id", id)
-        .order("created_at", { ascending: false }),
-    ]);
-
-  if (customerError || !customer || repairsError) {
-    return (
-      <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6">
-        <Link href="/customers" className="inline-flex rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/8">
-          ← Zurück
-        </Link>
-        <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
-          Kunde konnte nicht geladen werden.
-        </div>
-      </main>
-    );
+  function selectCustomer(c: CustomerResult) {
+    setSelectedCustomer(c);
+    setCustomerId(c.id);
+    const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
+    setKundenName(name);
+    setKundenTelefon(c.phone ?? "");
+    setKundenEmail(c.email ?? "");
+    setKundenAdresse(c.address ?? "");
+    setSearchQuery(name);
+    setShowDropdown(false);
   }
 
-  const customerData = customer as Customer;
-  const repairList = (repairs ?? []) as Repair[];
-  const displayName = getCustomerName(customerData);
-  const initials = getInitials(displayName);
+  function clearCustomer() {
+    setSelectedCustomer(null);
+    setCustomerId(null);
+    setSearchQuery("");
+    setKundenName("");
+    setKundenTelefon("");
+    setKundenEmail("");
+    setKundenAdresse("");
+  }
 
-  const openCount = repairList.filter((r) => {
-    const v = (r.status ?? "").trim().toLowerCase();
-    return !["abgeschlossen", "abgeholt", "storniert"].includes(v);
-  }).length;
+  function addQuickProblem(text: string) {
+    setProblem((prev) => {
+      if (prev.includes(text)) return prev;
+      return prev ? `${prev}\n${text}` : text;
+    });
+    problemRef.current?.focus();
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.set("kunden_name", kundenName);
+      formData.set("kunden_telefon", kundenTelefon);
+      formData.set("kunden_email", kundenEmail);
+      formData.set("kunden_adresse", kundenAdresse);
+      formData.set("reparatur_problem", problem);
+      if (customerId) formData.set("customer_id", customerId);
+
+      const res = await fetch("/api/repairs/create", { method: "POST", body: formData });
+      const contentType = res.headers.get("content-type") || "";
+      const text = await res.text();
+      const result = contentType.includes("application/json") && text ? JSON.parse(text) : { ok: false, error: { message: text } };
+
+      if (res.ok && result.ok) { window.location.href = `/repairs/${result.id}`; return; }
+      alert(result?.error?.message || `Fehler (${res.status})`);
+    } catch (err: unknown) {
+      alert(`Fehler: ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setLoading(false); }
+  }
 
   return (
     <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
@@ -107,139 +141,205 @@ export default async function CustomerDetailPage({
       </div>
 
       <div className="w-full space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <Link href="/customers" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
-            ← Kundendatei
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
+              🪛 REPARATUR · ANNAHME
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Neuer Reparaturauftrag</h1>
+            <p className="mt-1 text-sm text-slate-500">Gerät annehmen, Kunde verknüpfen und Auftrag anlegen.</p>
+          </div>
+          <Link href="/repairs" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
+            Abbrechen
           </Link>
-          <div className="flex gap-2">
-            <EditCustomerPanel customer={customerData} />
-            <Link href="/repairs/new" className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90">
-              + Neuer Auftrag
-            </Link>
-          </div>
         </div>
 
-        <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-6">
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-xl font-bold text-white shadow-lg shadow-violet-500/20 shrink-0">
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-xs font-medium text-violet-300 mb-2">
-                KUNDE · DETAIL
+        <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+          <div className="space-y-5">
+
+            {/* Kunde */}
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-1">Kunde</h2>
+              <p className="text-sm text-slate-500 mb-5">Bestehenden Kunden suchen oder neu eingeben</p>
+
+              <div ref={searchRef} className="relative mb-5">
+                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">🔍 Kunde suchen</label>
+                {selectedCustomer ? (
+                  <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                    <div>
+                      <div className="text-sm font-medium text-emerald-300">
+                        ✓ {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}
+                      </div>
+                      <div className="text-xs text-emerald-400/60 mt-0.5">
+                        {selectedCustomer.customer_code} · {selectedCustomer.phone ?? "Kein Tel."}
+                      </div>
+                    </div>
+                    <button type="button" onClick={clearCustomer}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:text-white">
+                      Ändern
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                      placeholder="Name, Telefon oder E-Mail..."
+                      className={inputClass}
+                    />
+                    {showDropdown && (
+                      <div className="absolute z-50 mt-2 w-full rounded-2xl border border-white/10 bg-[#181c24] shadow-2xl overflow-hidden">
+                        {searching ? (
+                          <div className="px-4 py-3 text-sm text-slate-500">Suche...</div>
+                        ) : searchResults.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-slate-600">Kein Kunde gefunden – manuell eingeben</div>
+                        ) : (
+                          searchResults.map((c) => (
+                            <button key={c.id} type="button" onClick={() => selectCustomer(c)}
+                              className="w-full px-4 py-3 text-left transition hover:bg-white/5 border-b border-white/5 last:border-0">
+                              <div className="text-sm font-medium text-white">
+                                {[c.first_name, c.last_name].filter(Boolean).join(" ") || "Unbenannt"}
+                              </div>
+                              <div className="text-xs text-slate-500 mt-0.5">{c.phone ?? "—"} · {c.email ?? "—"}</div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-              <h1 className="text-2xl font-bold text-white">{displayName}</h1>
-              <p className="text-sm text-slate-500 font-mono mt-0.5">{customerData.customer_code || customerData.id}</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-            <div className="text-sm text-slate-500">Aufträge gesamt</div>
-            <div className="mt-2 text-4xl font-bold text-white">{repairList.length}</div>
-          </div>
-          <div className="rounded-2xl border border-violet-500/20 bg-violet-500/8 backdrop-blur-sm p-5">
-            <div className="text-sm text-violet-400">Offene Reparaturen</div>
-            <div className="mt-2 text-4xl font-bold text-violet-200">{openCount}</div>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-            <div className="text-sm text-slate-500">Kunde seit</div>
-            <div className="mt-2 text-lg font-semibold text-white">{formatDate(customerData.created_at)}</div>
-          </div>
-        </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <InputField label="Name / Firma" required>
+                  <input value={kundenName} onChange={(e) => setKundenName(e.target.value)} required placeholder="Max Mustermann" className={inputClass} />
+                </InputField>
+                <InputField label="Telefon">
+                  <input value={kundenTelefon} onChange={(e) => setKundenTelefon(e.target.value)} placeholder="+49 ..." className={inputClass} />
+                </InputField>
+                <InputField label="E-Mail">
+                  <input type="email" value={kundenEmail} onChange={(e) => setKundenEmail(e.target.value)} placeholder="email@beispiel.de" className={inputClass} />
+                </InputField>
+                <InputField label="Adresse">
+                  <input value={kundenAdresse} onChange={(e) => setKundenAdresse(e.target.value)} placeholder="Straße, PLZ Stadt" className={inputClass} />
+                </InputField>
+              </div>
+            </section>
 
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.15fr]">
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-4">Stammdaten</h2>
-              <div className="grid gap-3 md:grid-cols-2">
+            {/* Gerät */}
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-1">Gerät</h2>
+              <p className="text-sm text-slate-500 mb-5">Geräteinformationen für die Werkstatt</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <InputField label="Gerätetyp">
+                  <select name="geraetetyp" defaultValue="" className={inputClass + " cursor-pointer"}>
+                    <option value="">Bitte wählen</option>
+                    {DEVICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </InputField>
+                <InputField label="Hersteller">
+                  <input name="hersteller" placeholder="Apple, Samsung..." className={inputClass} />
+                </InputField>
+                <InputField label="Modell">
+                  <input name="modell" placeholder="iPhone 15, Galaxy S24..." className={inputClass} />
+                </InputField>
+                <InputField label="IMEI / Seriennummer">
+                  <input name="imei" placeholder="123456789012345" className={inputClass} />
+                </InputField>
+                <InputField label="Gerätecode / Muster">
+                  <input name="geraete_code" placeholder="PIN oder Muster" className={inputClass} />
+                </InputField>
+              </div>
+            </section>
+
+            {/* Problem mit Quick-Buttons */}
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-1">Reparatur</h2>
+              <p className="text-sm text-slate-500 mb-4">Fehlerbild und wichtige Hinweise</p>
+
+              {/* Quick Buttons */}
+              <div className="mb-3">
+                <div className="text-xs uppercase tracking-wide text-slate-600 mb-2">Schnellauswahl</div>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_PROBLEMS.map((q) => (
+                    <button
+                      key={q.label}
+                      type="button"
+                      onClick={() => addQuickProblem(q.text)}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                        problem.includes(q.text)
+                          ? "border-violet-500/40 bg-violet-500/15 text-violet-300"
+                          : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20"
+                      }`}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <InputField label="Problem / Fehlerbeschreibung" required>
+                <textarea
+                  ref={problemRef}
+                  name="reparatur_problem"
+                  value={problem}
+                  onChange={(e) => setProblem(e.target.value)}
+                  rows={5}
+                  required
+                  placeholder="z. B. Display gebrochen, lädt nicht, Wasserschaden ..."
+                  className={inputClass + " resize-none"}
+                />
+              </InputField>
+            </section>
+          </div>
+
+          {/* Rechte Spalte */}
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-4">Werkstatt-Info</h2>
+              <div className="space-y-3">
                 {[
-                  { label: "Vorname", value: customerData.first_name },
-                  { label: "Nachname", value: customerData.last_name },
-                  { label: "Telefon", value: customerData.phone },
-                  { label: "E-Mail", value: customerData.email },
+                  { label: "Startstatus", value: "Angenommen" },
+                  { label: "Nach dem Speichern", value: "Direkt in den Auftrag" },
+                  { label: "Journal", value: "Danach ergänzbar" },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl border border-white/6 bg-white/3 px-4 py-3">
                     <div className="text-xs uppercase tracking-wide text-slate-600">{item.label}</div>
-                    <div className="mt-1 text-sm font-medium text-slate-200">{item.value || "—"}</div>
+                    <div className="mt-1 text-sm font-medium text-slate-300">{item.value}</div>
                   </div>
                 ))}
-                <div className="md:col-span-2 rounded-xl border border-white/6 bg-white/3 px-4 py-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-600">Adresse</div>
-                  <div className="mt-1 text-sm font-medium text-slate-200">{customerData.address || "—"}</div>
+              </div>
+            </section>
+
+            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5 xl:sticky xl:top-24">
+              <div className="mb-4">
+                <div className="text-base font-semibold text-white">Auftrag anlegen</div>
+                <div className="mt-1 text-sm text-slate-500">
+                  {selectedCustomer
+                    ? `✓ ${[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}`
+                    : "Neuer Kunde wird angelegt"}
                 </div>
               </div>
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-4">Notizen</h2>
-              <div className="rounded-xl border border-white/6 bg-white/3 px-4 py-4 text-sm text-slate-400 whitespace-pre-wrap min-h-[80px]">
-                {customerData.notes || "Keine Notizen vorhanden."}
+              <div className="space-y-3">
+                <button
+                  disabled={loading}
+                  type="submit"
+                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {loading ? "Speichert..." : "Auftrag speichern"}
+                </button>
+                <Link
+                  href="/repairs"
+                  className="block w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-400 transition hover:text-white hover:bg-white/8"
+                >
+                  Zurück zur Übersicht
+                </Link>
               </div>
             </div>
           </div>
-          <NfcCodeDisplay customerCode={customerData.customer_code ?? customerData.id} />
-
-          <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-            <h2 className="text-base font-semibold text-white">Reparaturaufträge</h2>
-            <p className="mt-1 text-sm text-slate-500 mb-5">Alle verknüpften Aufträge</p>
-            <div className="rounded-2xl border border-white/6 overflow-hidden">
-              <table className="min-w-full text-sm">
-                <thead className="border-b border-white/6">
-                  <tr className="text-left text-xs text-slate-600 uppercase tracking-wide">
-                    <th className="px-4 py-3 font-medium">Auftrag</th>
-                    <th className="px-4 py-3 font-medium">Gerät</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Datum</th>
-                    <th className="px-4 py-3 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {repairList.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-slate-600 text-sm">
-                        Keine Reparaturen vorhanden.
-                      </td>
-                    </tr>
-                  ) : (
-                    repairList.map((repair) => {
-                      const statusMeta = getStatusMeta(repair.status);
-                      return (
-                        <tr key={repair.id} className="transition hover:bg-white/3">
-                          <td className="px-4 py-3">
-                            <div className="font-mono text-xs text-slate-400">
-                              {repair.auftragsnummer || repair.id.slice(0, 8)}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-medium text-slate-200">
-                              {[repair.hersteller, repair.modell].filter(Boolean).join(" ") || "—"}
-                            </div>
-                            <div className="text-xs text-slate-600">{repair.geraetetyp || "—"}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusMeta.className}`}>
-                              {statusMeta.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-slate-500">
-                            {formatDate(repair.annahme_datum || repair.created_at)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Link href={`/repairs/${repair.id}`}
-                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:border-violet-500/30 hover:text-violet-300">
-                              Öffnen →
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        </form>
       </div>
     </main>
   );
