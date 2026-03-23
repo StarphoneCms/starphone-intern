@@ -5,6 +5,16 @@ import { useState, useRef, useEffect } from "react";
 
 const DEVICE_TYPES = ["Smartphone", "Tablet", "Smartwatch", "Laptop", "PC", "Konsole", "Sonstiges"];
 
+const QUICK_PROBLEMS = [
+  { label: "🖥️ Display gebrochen", text: "Display gebrochen / Displayschaden" },
+  { label: "🔋 Lädt nicht", text: "Gerät lädt nicht / Ladeproblem" },
+  { label: "💧 Wasserschaden", text: "Wasserschaden" },
+  { label: "🎙️ Mikro / Lautsprecher", text: "Mikrofon / Lautsprecher defekt" },
+  { label: "🔋 Akku tauschen", text: "Akku tauschen" },
+  { label: "📷 Kamera defekt", text: "Kamera defekt" },
+  { label: "🔒 PIN vergessen", text: "Entsperrt / PIN vergessen" },
+];
+
 type CustomerResult = {
   id: string;
   first_name: string | null;
@@ -36,12 +46,14 @@ export default function NewRepairPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const problemRef = useRef<HTMLTextAreaElement>(null);
 
   const [kundenName, setKundenName] = useState("");
   const [kundenTelefon, setKundenTelefon] = useState("");
   const [kundenEmail, setKundenEmail] = useState("");
   const [kundenAdresse, setKundenAdresse] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [problem, setProblem] = useState("");
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -90,6 +102,14 @@ export default function NewRepairPage() {
     setKundenAdresse("");
   }
 
+  function addQuickProblem(text: string) {
+    setProblem((prev) => {
+      if (prev.includes(text)) return prev;
+      return prev ? `${prev}\n${text}` : text;
+    });
+    problemRef.current?.focus();
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -99,6 +119,7 @@ export default function NewRepairPage() {
       formData.set("kunden_telefon", kundenTelefon);
       formData.set("kunden_email", kundenEmail);
       formData.set("kunden_adresse", kundenAdresse);
+      formData.set("reparatur_problem", problem);
       if (customerId) formData.set("customer_id", customerId);
 
       const res = await fetch("/api/repairs/create", { method: "POST", body: formData });
@@ -115,13 +136,11 @@ export default function NewRepairPage() {
 
   return (
     <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
-      {/* Glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
       </div>
 
       <div className="w-full space-y-6">
-        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
@@ -143,10 +162,8 @@ export default function NewRepairPage() {
               <h2 className="text-base font-semibold text-white mb-1">Kunde</h2>
               <p className="text-sm text-slate-500 mb-5">Bestehenden Kunden suchen oder neu eingeben</p>
 
-              {/* Suche */}
               <div ref={searchRef} className="relative mb-5">
                 <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">🔍 Kunde suchen</label>
-
                 {selectedCustomer ? (
                   <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                     <div>
@@ -195,7 +212,6 @@ export default function NewRepairPage() {
                 )}
               </div>
 
-              {/* Manuelle Felder */}
               <div className="grid gap-4 md:grid-cols-2">
                 <InputField label="Name / Firma" required>
                   <input value={kundenName} onChange={(e) => setKundenName(e.target.value)} required placeholder="Max Mustermann" className={inputClass} />
@@ -238,14 +254,39 @@ export default function NewRepairPage() {
               </div>
             </section>
 
-            {/* Problem */}
+            {/* Problem mit Quick-Buttons */}
             <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
               <h2 className="text-base font-semibold text-white mb-1">Reparatur</h2>
-              <p className="text-sm text-slate-500 mb-5">Fehlerbild und wichtige Hinweise</p>
+              <p className="text-sm text-slate-500 mb-4">Fehlerbild und wichtige Hinweise</p>
+
+              {/* Quick Buttons */}
+              <div className="mb-3">
+                <div className="text-xs uppercase tracking-wide text-slate-600 mb-2">Schnellauswahl</div>
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_PROBLEMS.map((q) => (
+                    <button
+                      key={q.label}
+                      type="button"
+                      onClick={() => addQuickProblem(q.text)}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                        problem.includes(q.text)
+                          ? "border-violet-500/40 bg-violet-500/15 text-violet-300"
+                          : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20"
+                      }`}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <InputField label="Problem / Fehlerbeschreibung" required>
                 <textarea
+                  ref={problemRef}
                   name="reparatur_problem"
-                  rows={6}
+                  value={problem}
+                  onChange={(e) => setProblem(e.target.value)}
+                  rows={5}
                   required
                   placeholder="z. B. Display gebrochen, lädt nicht, Wasserschaden ..."
                   className={inputClass + " resize-none"}
@@ -272,7 +313,6 @@ export default function NewRepairPage() {
               </div>
             </section>
 
-            {/* Submit sticky */}
             <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5 xl:sticky xl:top-24">
               <div className="mb-4">
                 <div className="text-base font-semibold text-white">Auftrag anlegen</div>

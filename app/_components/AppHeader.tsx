@@ -42,6 +42,7 @@ export default function AppHeader() {
           <NavItem href="/customers" label="🙋‍♂️ Kunden" />
           <NavItem href="/repairs" label="🪛 Reparaturen" />
           <NavItem href="/repairs/new" label="🆕 Reparatur starten" />
+          <NavItem href="/prices" label="💰 Preisliste" />
           <LogoutButton />
         </nav>
       </div>
