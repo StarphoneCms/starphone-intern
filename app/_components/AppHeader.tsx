@@ -34,7 +34,7 @@ export default function AppHeader() {
       <div className="w-full px-4 md:px-6 xl:px-8 py-4 flex items-center justify-between gap-6">
         <div className="flex items-center gap-3">
           <div className="font-bold tracking-wide text-white">STAR CMS</div>
-          <div className="text-xs text-gray-400">by OZ</div>
+          <div className="text-xs text-gray-400">by LuckyRoo</div>
         </div>
 
         <nav className="flex items-center gap-2">

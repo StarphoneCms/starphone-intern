@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerComponentClient } from "@/lib/supabase/server";
 import EditCustomerPanel from "./EditCustomerPanel";
+import NfcCodeDisplay from "./NfcCodeDisplay";
+
 
 type Customer = {
   id: string;
@@ -176,6 +178,7 @@ export default async function CustomerDetailPage({
               </div>
             </div>
           </div>
+          <NfcCodeDisplay customerCode={customerData.customer_code ?? customerData.id} />
 
           <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
             <h2 className="text-base font-semibold text-white">Reparaturaufträge</h2>
