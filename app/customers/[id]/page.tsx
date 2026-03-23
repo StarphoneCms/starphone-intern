@@ -1,9 +1,9 @@
-"use client";
-
-import { useState, useMemo } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createServerComponentClient } from "@/lib/supabase/server";
+import EditCustomerPanel from "./EditCustomerPanel";
 
-type CustomerRow = {
+type Customer = {
   id: string;
   customer_code: string | null;
   first_name: string | null;
@@ -14,11 +14,39 @@ type CustomerRow = {
   notes: string | null;
   created_at: string | null;
   updated_at: string | null;
-  displayName: string;
-  repairCount: number;
-  openRepairCount: number;
-  latestRepairAt: string | null;
 };
+
+type Repair = {
+  id: string;
+  auftragsnummer: string | null;
+  status: string | null;
+  annahme_datum: string | null;
+  created_at: string | null;
+  hersteller: string | null;
+  modell: string | null;
+  geraetetyp: string | null;
+  reparatur_problem: string | null;
+  customer_id: string | null;
+};
+
+function getCustomerName(customer: Customer) {
+  const full = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
+  return full || customer.customer_code || "Unbenannter Kunde";
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function getStatusMeta(status: string | null) {
+  const value = (status ?? "").trim().toLowerCase();
+  if (value === "angenommen") return { label: "Angenommen", className: "border-amber-500/30 bg-amber-500/10 text-amber-300" };
+  if (["in_arbeit", "in_reparatur"].includes(value)) return { label: "In Reparatur", className: "border-violet-500/30 bg-violet-500/10 text-violet-300" };
+  if (["fertig", "abholbereit"].includes(value)) return { label: "Abholbereit", className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" };
+  if (["abgeholt", "abgeschlossen"].includes(value)) return { label: "Abgeschlossen", className: "border-slate-500/30 bg-slate-500/10 text-slate-400" };
+  if (value === "storniert") return { label: "Storniert", className: "border-rose-500/30 bg-rose-500/10 text-rose-300" };
+  return { label: status ?? "—", className: "border-white/15 bg-white/10 text-white/70" };
+}
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -27,223 +55,187 @@ function formatDate(value: string | null) {
   return d.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-}
-
-const AVATAR_COLORS = [
-  "from-violet-600 to-indigo-600",
-  "from-emerald-600 to-teal-600",
-  "from-amber-600 to-orange-600",
-  "from-rose-600 to-pink-600",
-  "from-sky-600 to-blue-600",
-  "from-fuchsia-600 to-purple-600",
-];
-
-function getAvatarColor(id: string) {
-  const sum = id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
-}
-
-export default function CustomersClient({
-  customers,
-  totalOpenRepairs,
+export default async function CustomerDetailPage({
+  params,
 }: {
-  customers: CustomerRow[];
-  totalOpenRepairs: number;
+  params: Promise<{ id: string }>;
 }) {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"alle" | "offen" | "keine">("alle");
+  const { id } = await params;
+  const supabase = await createServerComponentClient();
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return customers.filter((c) => {
-      const matchesSearch =
-        !q ||
-        c.displayName.toLowerCase().includes(q) ||
-        (c.phone ?? "").toLowerCase().includes(q) ||
-        (c.email ?? "").toLowerCase().includes(q) ||
-        (c.customer_code ?? "").toLowerCase().includes(q) ||
-        (c.address ?? "").toLowerCase().includes(q);
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) redirect("/login");
 
-      const matchesFilter =
-        filter === "alle" ||
-        (filter === "offen" && c.openRepairCount > 0) ||
-        (filter === "keine" && c.openRepairCount === 0);
+  const [{ data: customer, error: customerError }, { data: repairs, error: repairsError }] =
+    await Promise.all([
+      supabase.from("customers").select("*").eq("id", id).single(),
+      supabase.from("repairs")
+        .select("id, auftragsnummer, status, annahme_datum, created_at, hersteller, modell, geraetetyp, reparatur_problem, customer_id")
+        .eq("customer_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [customers, search, filter]);
+  if (customerError || !customer || repairsError) {
+    return (
+      <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6">
+        <Link href="/customers" className="inline-flex rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/8">
+          ← Zurück
+        </Link>
+        <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
+          Kunde konnte nicht geladen werden.
+        </div>
+      </main>
+    );
+  }
 
-  const customersWithOpenRepairs = customers.filter((c) => c.openRepairCount > 0).length;
+  const customerData = customer as Customer;
+  const repairList = (repairs ?? []) as Repair[];
+  const displayName = getCustomerName(customerData);
+  const initials = getInitials(displayName);
+
+  const openCount = repairList.filter((r) => {
+    const v = (r.status ?? "").trim().toLowerCase();
+    return !["abgeschlossen", "abgeholt", "storniert"].includes(v);
+  }).length;
 
   return (
     <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
-      {/* Hintergrund Glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-        <div className="absolute -top-60 right-1/4 w-[700px] h-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-indigo-600/6 blur-[100px]" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
       </div>
 
       <div className="w-full space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
-              🙋‍♂️ KUNDEN · ÜBERSICHT
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Kundendatei</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Alle Kunden mit verknüpften Reparaturaufträgen
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/dashboard"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/8 hover:text-white"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/customers/new"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/8 hover:text-white"
-            >
-              + Neuer Kunde
-            </Link>
-            <Link
-              href="/repairs/new"
-              className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90"
-            >
-              Neuer Auftrag
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/customers" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
+            ← Kundendatei
+          </Link>
+          <div className="flex gap-2">
+            <EditCustomerPanel customer={customerData} />
+            <Link href="/repairs/new" className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90">
+              + Neuer Auftrag
             </Link>
           </div>
         </div>
 
-        {/* KPI Cards */}
+        <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-xl font-bold text-white shadow-lg shadow-violet-500/20 shrink-0">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-xs font-medium text-violet-300 mb-2">
+                KUNDE · DETAIL
+              </div>
+              <h1 className="text-2xl font-bold text-white">{displayName}</h1>
+              <p className="text-sm text-slate-500 font-mono mt-0.5">{customerData.customer_code || customerData.id}</p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-            <div className="text-sm text-slate-500">Kunden gesamt</div>
-            <div className="mt-2 text-4xl font-bold text-white">{customers.length}</div>
+            <div className="text-sm text-slate-500">Aufträge gesamt</div>
+            <div className="mt-2 text-4xl font-bold text-white">{repairList.length}</div>
           </div>
           <div className="rounded-2xl border border-violet-500/20 bg-violet-500/8 backdrop-blur-sm p-5">
-            <div className="text-sm text-violet-400">Mit offenen Aufträgen</div>
-            <div className="mt-2 text-4xl font-bold text-violet-200">{customersWithOpenRepairs}</div>
+            <div className="text-sm text-violet-400">Offene Reparaturen</div>
+            <div className="mt-2 text-4xl font-bold text-violet-200">{openCount}</div>
           </div>
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 backdrop-blur-sm p-5">
-            <div className="text-sm text-amber-400">Offene Reparaturen</div>
-            <div className="mt-2 text-4xl font-bold text-amber-200">{totalOpenRepairs}</div>
-          </div>
-        </div>
-
-        {/* Suche & Filter */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm">🔍</span>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Name, Telefon, E-Mail, Adresse..."
-              className="w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition"
-            />
-          </div>
-          <div className="flex gap-2">
-            {(["alle", "offen", "keine"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
-                  filter === f
-                    ? "border-violet-500/40 bg-violet-500/15 text-violet-300"
-                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/8"
-                }`}
-              >
-                {f === "alle" ? "Alle" : f === "offen" ? "Mit offenen" : "Keine offenen"}
-              </button>
-            ))}
+          <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+            <div className="text-sm text-slate-500">Kunde seit</div>
+            <div className="mt-2 text-lg font-semibold text-white">{formatDate(customerData.created_at)}</div>
           </div>
         </div>
 
-        {/* Ergebnis-Info */}
-        {(search || filter !== "alle") && (
-          <p className="text-xs text-slate-600">
-            {filtered.length} von {customers.length} Kunden
-          </p>
-        )}
-
-        {/* Kunden Liste */}
-        <div className="rounded-2xl border border-white/8 bg-white/3 backdrop-blur-sm overflow-hidden">
-          {/* Table Header */}
-          <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-5 py-3 border-b border-white/6 text-xs font-medium text-slate-600 uppercase tracking-wide">
-            <div>Kunde</div>
-            <div>Kontakt</div>
-            <div>Aufträge</div>
-            <div>Letzte Aktivität</div>
-            <div></div>
-          </div>
-
-          {/* Rows */}
-          {filtered.length === 0 ? (
-            <div className="px-5 py-16 text-center">
-              <div className="text-slate-600 text-sm">
-                {search ? `Keine Ergebnisse für „${search}"` : "Keine Kunden vorhanden."}
+        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.15fr]">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-4">Stammdaten</h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  { label: "Vorname", value: customerData.first_name },
+                  { label: "Nachname", value: customerData.last_name },
+                  { label: "Telefon", value: customerData.phone },
+                  { label: "E-Mail", value: customerData.email },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl border border-white/6 bg-white/3 px-4 py-3">
+                    <div className="text-xs uppercase tracking-wide text-slate-600">{item.label}</div>
+                    <div className="mt-1 text-sm font-medium text-slate-200">{item.value || "—"}</div>
+                  </div>
+                ))}
+                <div className="md:col-span-2 rounded-xl border border-white/6 bg-white/3 px-4 py-3">
+                  <div className="text-xs uppercase tracking-wide text-slate-600">Adresse</div>
+                  <div className="mt-1 text-sm font-medium text-slate-200">{customerData.address || "—"}</div>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="divide-y divide-white/5">
-              {filtered.map((customer) => (
-                <div
-                  key={customer.id}
-                  className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 items-center px-5 py-4 transition hover:bg-white/4"
-                >
-                  {/* Avatar + Name */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarColor(customer.id)} flex items-center justify-center text-xs font-bold text-white shrink-0`}>
-                      {getInitials(customer.displayName)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-white text-sm truncate">{customer.displayName}</div>
-                      <div className="text-xs text-slate-600 font-mono mt-0.5 truncate">
-                        {customer.customer_code || customer.id.slice(0, 8)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Kontakt */}
-                  <div className="min-w-0">
-                    <div className="text-sm text-slate-300 truncate">{customer.phone || "—"}</div>
-                    <div className="text-xs text-slate-600 mt-0.5 truncate">{customer.email || "Keine E-Mail"}</div>
-                  </div>
-
-                  {/* Aufträge */}
-                  <div>
-                    <div className="text-sm text-slate-300">{customer.repairCount} gesamt</div>
-                    {customer.openRepairCount > 0 ? (
-                      <div className="mt-1 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                        {customer.openRepairCount} offen
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-600 mt-0.5">alle geschlossen</div>
-                    )}
-                  </div>
-
-                  {/* Letzte Aktivität */}
-                  <div className="text-sm text-slate-500 tabular-nums">
-                    {formatDate(customer.latestRepairAt)}
-                  </div>
-
-                  {/* Aktion */}
-                  <Link
-                    href={`/customers/${customer.id}`}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-400 transition hover:border-violet-500/30 hover:text-violet-300 whitespace-nowrap"
-                  >
-                    Öffnen →
-                  </Link>
-                </div>
-              ))}
+            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+              <h2 className="text-base font-semibold text-white mb-4">Notizen</h2>
+              <div className="rounded-xl border border-white/6 bg-white/3 px-4 py-4 text-sm text-slate-400 whitespace-pre-wrap min-h-[80px]">
+                {customerData.notes || "Keine Notizen vorhanden."}
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
+            <h2 className="text-base font-semibold text-white">Reparaturaufträge</h2>
+            <p className="mt-1 text-sm text-slate-500 mb-5">Alle verknüpften Aufträge</p>
+            <div className="rounded-2xl border border-white/6 overflow-hidden">
+              <table className="min-w-full text-sm">
+                <thead className="border-b border-white/6">
+                  <tr className="text-left text-xs text-slate-600 uppercase tracking-wide">
+                    <th className="px-4 py-3 font-medium">Auftrag</th>
+                    <th className="px-4 py-3 font-medium">Gerät</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Datum</th>
+                    <th className="px-4 py-3 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {repairList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-slate-600 text-sm">
+                        Keine Reparaturen vorhanden.
+                      </td>
+                    </tr>
+                  ) : (
+                    repairList.map((repair) => {
+                      const statusMeta = getStatusMeta(repair.status);
+                      return (
+                        <tr key={repair.id} className="transition hover:bg-white/3">
+                          <td className="px-4 py-3">
+                            <div className="font-mono text-xs text-slate-400">
+                              {repair.auftragsnummer || repair.id.slice(0, 8)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-slate-200">
+                              {[repair.hersteller, repair.modell].filter(Boolean).join(" ") || "—"}
+                            </div>
+                            <div className="text-xs text-slate-600">{repair.geraetetyp || "—"}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusMeta.className}`}>
+                              {statusMeta.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-500">
+                            {formatDate(repair.annahme_datum || repair.created_at)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link href={`/repairs/${repair.id}`}
+                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:border-violet-500/30 hover:text-violet-300">
+                              Öffnen →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </main>
