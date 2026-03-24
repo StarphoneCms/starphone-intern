@@ -2,18 +2,9 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 
 const DEVICE_TYPES = ["Smartphone", "Tablet", "Smartwatch", "Laptop", "PC", "Konsole", "Sonstiges"];
-
-const QUICK_PROBLEMS = [
-  { label: "🖥️ Display gebrochen", text: "Display gebrochen / Displayschaden", kategorie: "Display" },
-  { label: "🔋 Lädt nicht", text: "Gerät lädt nicht / Ladeproblem", kategorie: null },
-  { label: "💧 Wasserschaden", text: "Wasserschaden", kategorie: "Wasserschaden" },
-  { label: "🎙️ Mikro / Lautsprecher", text: "Mikrofon / Lautsprecher defekt", kategorie: "Mikrofon" },
-  { label: "🔋 Akku tauschen", text: "Akku tauschen", kategorie: "Akku" },
-  { label: "📷 Kamera defekt", text: "Kamera defekt", kategorie: "Kamera" },
-  { label: "🔒 PIN vergessen", text: "Entsperrt / PIN vergessen", kategorie: "Entsperren" },
-];
 
 type CustomerResult = {
   id: string;
@@ -25,12 +16,9 @@ type CustomerResult = {
   customer_code: string | null;
 };
 
-type PriceItem = {
-  id: string;
-  kategorie: string;
-  hersteller: string | null;
-  modell: string | null;
-  reparatur_art: string;
+type SelectedRepair = {
+  field: string;
+  label: string;
   preis: number;
 };
 
@@ -48,107 +36,46 @@ function InputField({ label, required, children }: { label: string; required?: b
 const inputClass = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition";
 
 export default function NewRepairPage() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+
+  // ─── Aus Preisliste vorausgefüllt ──────────────────────────────────────────
+  const prefilledHersteller = searchParams.get("hersteller") ?? "";
+  const prefilledModell = searchParams.get("modell") ?? "";
+  const prefilledReparaturen: SelectedRepair[] = (searchParams.get("reparaturen") ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map((r) => {
+      const [field, preis, label] = r.split(":");
+      return { field, preis: parseFloat(preis) || 0, label: decodeURIComponent(label ?? field) };
+    });
+
+  const fromPreisliste = prefilledReparaturen.length > 0;
+
+  // ─── State ──────────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CustomerResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const problemRef = useRef<HTMLTextAreaElement>(null);
 
   const [kundenName, setKundenName] = useState("");
   const [kundenTelefon, setKundenTelefon] = useState("");
   const [kundenEmail, setKundenEmail] = useState("");
   const [kundenAdresse, setKundenAdresse] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
-  const [problem, setProblem] = useState("");
+  const [problem, setProblem] = useState(prefilledReparaturen.map((r) => r.label).join("\n"));
 
-  // Geräte Dropdowns
-  const [hersteller, setHersteller] = useState("");
-  const [modell, setModell] = useState("");
-  const [herstellerOptions, setHerstellerOptions] = useState<string[]>([]);
-  const [modellOptions, setModellOptions] = useState<string[]>([]);
+  const [hersteller, setHersteller] = useState(prefilledHersteller);
+  const [modell, setModell] = useState(prefilledModell);
 
-  // Preise
-  const [allPrices, setAllPrices] = useState<PriceItem[]>([]);
-  const [matchedPrices, setMatchedPrices] = useState<PriceItem[]>([]);
-  const [selectedPrices, setSelectedPrices] = useState<PriceItem[]>([]);
-  const [manualPreis, setManualPreis] = useState("");
+  // Reparaturen – aus Preisliste vorausgefüllt, anpassbar
+  const [selectedRepairs, setSelectedRepairs] = useState<SelectedRepair[]>(prefilledReparaturen);
 
-  // Preise laden
-  useEffect(() => {
-    fetch("/api/prices")
-      .then((r) => r.json())
-      .then((d) => {
-        const prices: PriceItem[] = d.prices ?? [];
-        setAllPrices(prices);
-        // Hersteller Optionen
-        const herstellers = Array.from(new Set(prices.map((p) => p.hersteller).filter(Boolean) as string[])).sort();
-        setHerstellerOptions(herstellers);
-      });
-  }, []);
+  const totalPreis = selectedRepairs.reduce((s, r) => s + r.preis, 0);
 
-  // Modell Optionen wenn Hersteller gewählt
-  useEffect(() => {
-    if (!hersteller) { setModellOptions([]); setModell(""); return; }
-    const modelle = Array.from(new Set(
-      allPrices.filter((p) => p.hersteller === hersteller).map((p) => p.modell).filter(Boolean) as string[]
-    )).sort();
-    setModellOptions(modelle);
-    setModell("");
-  }, [hersteller, allPrices]);
-
-  // Passende Preise finden wenn Hersteller + Modell gewählt
-  useEffect(() => {
-    if (!hersteller || !modell) { setMatchedPrices([]); return; }
-    const matched = allPrices.filter(
-      (p) => p.hersteller === hersteller && p.modell === modell
-    );
-    setMatchedPrices(matched);
-  }, [hersteller, modell, allPrices]);
-
-  // Quick Button → Preis automatisch matchen
-  function addQuickProblem(text: string, kategorie: string | null) {
-    setProblem((prev) => {
-      if (prev.includes(text)) return prev;
-      return prev ? `${prev}\n${text}` : text;
-    });
-
-    // Preis automatisch hinzufügen wenn Hersteller+Modell gewählt
-    if (kategorie && hersteller && modell) {
-      const match = allPrices.find(
-        (p) => p.hersteller === hersteller && p.modell === modell && p.kategorie === kategorie
-      );
-      if (match && !selectedPrices.find((s) => s.id === match.id)) {
-        setSelectedPrices((prev) => [...prev, match]);
-      }
-    }
-
-    // Auch ohne Hersteller/Modell für generische Preise
-    if (kategorie && (!hersteller || !modell)) {
-      const genericMatch = allPrices.find(
-        (p) => !p.hersteller && !p.modell && p.kategorie === kategorie
-      );
-      if (genericMatch && !selectedPrices.find((s) => s.id === genericMatch.id)) {
-        setSelectedPrices((prev) => [...prev, genericMatch]);
-      }
-    }
-
-    problemRef.current?.focus();
-  }
-
-  function togglePrice(price: PriceItem) {
-    setSelectedPrices((prev) =>
-      prev.find((p) => p.id === price.id)
-        ? prev.filter((p) => p.id !== price.id)
-        : [...prev, price]
-    );
-  }
-
-  const totalPreis = selectedPrices.reduce((sum, p) => sum + p.preis, 0) +
-    (parseFloat(manualPreis) || 0);
-
+  // ─── Kundensuche ────────────────────────────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -193,6 +120,18 @@ export default function NewRepairPage() {
     setKundenName(""); setKundenTelefon(""); setKundenEmail(""); setKundenAdresse("");
   }
 
+  // ─── Reparaturen bearbeiten ─────────────────────────────────────────────────
+  const updatePreis = (field: string, val: string) => {
+    setSelectedRepairs((prev) =>
+      prev.map((r) => r.field === field ? { ...r, preis: parseFloat(val) || 0 } : r)
+    );
+  };
+
+  const removeRepair = (field: string) => {
+    setSelectedRepairs((prev) => prev.filter((r) => r.field !== field));
+  };
+
+  // ─── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -205,12 +144,13 @@ export default function NewRepairPage() {
       formData.set("reparatur_problem", problem);
       formData.set("hersteller", hersteller);
       formData.set("modell", modell);
+      formData.set("gesamtpreis", totalPreis.toString());
       if (customerId) formData.set("customer_id", customerId);
 
       const res = await fetch("/api/repairs/create", { method: "POST", body: formData });
       const contentType = res.headers.get("content-type") || "";
       const text = await res.text();
-      const result = contentType.includes("application/json") && text ? JSON.parse(text) : { ok: false, error: { message: text } };
+      const result = contentType.includes("application/json") && text ? JSON.parse(text) : { ok: false };
 
       if (res.ok && result.ok) { window.location.href = `/repairs/${result.id}`; return; }
       alert(result?.error?.message || `Fehler (${res.status})`);
@@ -226,18 +166,39 @@ export default function NewRepairPage() {
       </div>
 
       <div className="w-full space-y-6">
+
+        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
               🪛 REPARATUR · ANNAHME
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-white">Neuer Reparaturauftrag</h1>
-            <p className="mt-1 text-sm text-slate-500">Gerät annehmen, Kunde verknüpfen und Auftrag anlegen.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {fromPreisliste
+                ? `Aus Preisliste: ${hersteller} ${modell} · ${selectedRepairs.length} Reparatur(en) vorausgefüllt`
+                : "Gerät annehmen, Kunde verknüpfen und Auftrag anlegen."}
+            </p>
           </div>
-          <Link href="/repairs" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
-            Abbrechen
+          <Link href="/prices" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
+            ← Preisliste
           </Link>
         </div>
+
+        {/* Banner: Aus Preisliste */}
+        {fromPreisliste && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-500/25">
+            <span className="text-violet-300 text-lg">✓</span>
+            <div>
+              <p className="text-sm font-semibold text-violet-200">
+                {hersteller} {modell} · {selectedRepairs.length} Reparatur(en) übernommen
+              </p>
+              <p className="text-xs text-violet-400/70 mt-0.5">
+                Preise können unten noch angepasst werden · Bitte Kundendaten ergänzen
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
           <div className="space-y-5">
@@ -308,50 +269,16 @@ export default function NewRepairPage() {
               <p className="text-sm text-slate-500 mb-5">Geräteinformationen für die Werkstatt</p>
               <div className="grid gap-4 md:grid-cols-2">
                 <InputField label="Gerätetyp">
-                  <select name="geraetetyp" defaultValue="" className={inputClass + " cursor-pointer"}>
-                    <option value="">Bitte wählen</option>
+                  <select name="geraetetyp" defaultValue="Smartphone" className={inputClass + " cursor-pointer"}>
                     {DEVICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </InputField>
-
-                {/* Hersteller Dropdown */}
                 <InputField label="Hersteller">
-                  <select value={hersteller} onChange={(e) => setHersteller(e.target.value)} className={inputClass + " cursor-pointer"}>
-                    <option value="">Bitte wählen</option>
-                    {herstellerOptions.map((h) => <option key={h} value={h}>{h}</option>)}
-                    <option value="__other__">Anderer Hersteller...</option>
-                  </select>
+                  <input value={hersteller} onChange={(e) => setHersteller(e.target.value)} placeholder="Apple, Samsung..." className={inputClass} />
                 </InputField>
-
-                {/* Hersteller manuell wenn "Anderer" */}
-                {hersteller === "__other__" && (
-                  <InputField label="Hersteller (manuell)">
-                    <input placeholder="z.B. Huawei, Xiaomi..." className={inputClass}
-                      onChange={(e) => setHersteller(e.target.value)} />
-                  </InputField>
-                )}
-
-                {/* Modell Dropdown */}
                 <InputField label="Modell">
-                  {modellOptions.length > 0 ? (
-                    <select value={modell} onChange={(e) => setModell(e.target.value)} className={inputClass + " cursor-pointer"}>
-                      <option value="">Bitte wählen</option>
-                      {modellOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-                      <option value="__other__">Anderes Modell...</option>
-                    </select>
-                  ) : (
-                    <input value={modell} onChange={(e) => setModell(e.target.value)}
-                      placeholder="z.B. iPhone 15, Galaxy S24..." className={inputClass} />
-                  )}
+                  <input value={modell} onChange={(e) => setModell(e.target.value)} placeholder="iPhone 15 Pro..." className={inputClass} />
                 </InputField>
-
-                {modell === "__other__" && (
-                  <InputField label="Modell (manuell)">
-                    <input placeholder="Modellbezeichnung eingeben..." className={inputClass}
-                      onChange={(e) => setModell(e.target.value)} />
-                  </InputField>
-                )}
-
                 <InputField label="IMEI / Seriennummer">
                   <input name="imei" placeholder="123456789012345" className={inputClass} />
                 </InputField>
@@ -361,39 +288,12 @@ export default function NewRepairPage() {
               </div>
             </section>
 
-            {/* Problem + Quick Buttons */}
+            {/* Problem */}
             <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-1">Reparatur</h2>
-              <p className="text-sm text-slate-500 mb-4">Fehlerbild und wichtige Hinweise</p>
-
-              <div className="mb-4">
-                <div className="text-xs uppercase tracking-wide text-slate-600 mb-2">Schnellauswahl</div>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_PROBLEMS.map((q) => {
-                    const hasPrice = q.kategorie && hersteller && modell &&
-                      allPrices.some((p) => p.hersteller === hersteller && p.modell === modell && p.kategorie === q.kategorie);
-                    const isActive = problem.includes(q.text);
-                    return (
-                      <button key={q.label} type="button" onClick={() => addQuickProblem(q.text, q.kategorie)}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition flex items-center gap-1.5 ${
-                          isActive
-                            ? "border-violet-500/40 bg-violet-500/15 text-violet-300"
-                            : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20"
-                        }`}>
-                        {q.label}
-                        {hasPrice && (
-                          <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] text-emerald-300 font-semibold">
-                            {allPrices.find((p) => p.hersteller === hersteller && p.modell === modell && p.kategorie === q.kategorie)?.preis.toFixed(0)}€
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
+              <h2 className="text-base font-semibold text-white mb-1">Fehlerbeschreibung</h2>
+              <p className="text-sm text-slate-500 mb-4">Fehlerbild und Hinweise für die Werkstatt</p>
               <InputField label="Problem / Fehlerbeschreibung" required>
-                <textarea ref={problemRef} value={problem} onChange={(e) => setProblem(e.target.value)}
+                <textarea value={problem} onChange={(e) => setProblem(e.target.value)}
                   rows={4} required placeholder="z. B. Display gebrochen, lädt nicht..."
                   className={inputClass + " resize-none"} />
               </InputField>
@@ -403,52 +303,52 @@ export default function NewRepairPage() {
           {/* Rechte Spalte */}
           <div className="space-y-5">
 
-            {/* Preise */}
+            {/* Reparaturen aus Preisliste */}
             <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-1">💰 Preiskalkulation</h2>
+              <h2 className="text-base font-semibold text-white mb-1">💰 Reparaturen & Preise</h2>
               <p className="text-sm text-slate-500 mb-4">
-                {hersteller && modell ? `${hersteller} ${modell}` : "Erst Hersteller & Modell wählen"}
+                {fromPreisliste ? "Aus Preisliste übernommen · Preise anpassbar" : "Manuell eingeben"}
               </p>
 
-              {matchedPrices.length > 0 && (
+              {selectedRepairs.length > 0 ? (
                 <div className="space-y-2 mb-4">
-                  {matchedPrices.map((price) => (
-                    <button key={price.id} type="button" onClick={() => togglePrice(price)}
-                      className={`w-full flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm transition ${
-                        selectedPrices.find((p) => p.id === price.id)
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                          : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/8"
-                      }`}>
-                      <span>{price.reparatur_art}</span>
-                      <span className="font-semibold">{price.preis.toFixed(2)} €</span>
-                    </button>
+                  {selectedRepairs.map((r) => (
+                    <div key={r.field} className="flex items-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/8 px-4 py-2.5">
+                      <span className="flex-1 text-sm text-slate-200">{r.label}</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={r.preis}
+                        onChange={(e) => updatePreis(r.field, e.target.value)}
+                        className="w-24 rounded-lg border border-white/10 bg-white/8 px-2 py-1 text-sm text-emerald-300 font-semibold outline-none focus:border-violet-500/50 text-right"
+                      />
+                      <span className="text-slate-500 text-sm">€</span>
+                      <button
+                        type="button"
+                        onClick={() => removeRepair(r.field)}
+                        className="p-1 text-slate-600 hover:text-red-400 transition"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   ))}
                 </div>
-              )}
-
-              {matchedPrices.length === 0 && hersteller && modell && (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-400 mb-4">
-                  Keine Preise für {hersteller} {modell} – manuell eingeben
+              ) : (
+                <div className="rounded-xl border border-white/8 bg-white/3 px-4 py-3 text-sm text-slate-600 mb-4">
+                  Keine Reparaturen ausgewählt
                 </div>
               )}
 
-              {/* Manueller Preis */}
-              <div>
-                <label className="block text-xs uppercase tracking-wide text-slate-600 mb-1.5">Manueller Preis (€)</label>
-                <input type="number" step="0.01" value={manualPreis} onChange={(e) => setManualPreis(e.target.value)}
-                  placeholder="0.00" className={inputClass} />
-              </div>
-
               {/* Gesamtpreis */}
-              {(selectedPrices.length > 0 || parseFloat(manualPreis) > 0) && (
-                <div className="mt-4 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm text-violet-300">Gesamtpreis</span>
-                  <span className="text-lg font-bold text-violet-200">{totalPreis.toFixed(2)} €</span>
+              {selectedRepairs.length > 0 && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-emerald-300">Gesamtpreis</span>
+                  <span className="text-xl font-bold text-emerald-200">{totalPreis.toFixed(2)} €</span>
                 </div>
               )}
             </section>
 
-            {/* Werkstatt Info */}
+            {/* Info */}
             <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
               <h2 className="text-base font-semibold text-white mb-4">Werkstatt-Info</h2>
               <div className="space-y-3">
@@ -476,18 +376,18 @@ export default function NewRepairPage() {
                 </div>
                 {totalPreis > 0 && (
                   <div className="mt-2 text-sm font-semibold text-emerald-300">
-                    Preis: {totalPreis.toFixed(2)} €
+                    Gesamtpreis: {totalPreis.toFixed(2)} €
                   </div>
                 )}
               </div>
               <div className="space-y-3">
                 <button disabled={loading} type="submit"
                   className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90 disabled:opacity-50">
-                  {loading ? "Speichert..." : "Auftrag speichern"}
+                  {loading ? "Speichert..." : "✓ Auftrag speichern"}
                 </button>
-                <Link href="/repairs"
+                <Link href="/prices"
                   className="block w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
-                  Zurück zur Übersicht
+                  ← Zurück zur Preisliste
                 </Link>
               </div>
             </div>

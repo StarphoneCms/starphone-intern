@@ -38,11 +38,13 @@ export default function AppHeader() {
         </div>
 
         <nav className="flex items-center gap-2">
-          <NavItem href="/dashboard" label="📊 Dashboard" />
-          <NavItem href="/customers" label="🙋‍♂️ Kunden" />
-          <NavItem href="/repairs" label="🪛 Reparaturen" />
-          <NavItem href="/repairs/new" label="🆕 Reparatur starten" />
-          <NavItem href="/prices" label="💰 Preisliste" />
+          <NavItem href="/dashboard" label="Dashboard" />
+          <NavItem href="/customers" label="Kunden" />
+          <NavItem href="/repairs" label="Reparaturen" />
+          <NavItem href="/repairs/new" label="Reparatur starten" />
+          <NavItem href="/inventory" label="Geräte" />
+          <NavItem href="/prices" label="Preisliste" />
+          <NavItem href="/labels" label="Etiketten" />
           <LogoutButton />
         </nav>
       </div>

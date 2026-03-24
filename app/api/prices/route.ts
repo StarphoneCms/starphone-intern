@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
     .select("*")
     .eq("aktiv", true)
     .order("kategorie")
-    .order("preis");
+    .order("hersteller", { nullsFirst: false })
+    .order("modell", { nullsFirst: false })
+    .order("reparatur_art");
 
   if (hersteller) query = query.ilike("hersteller", `%${hersteller}%`);
   if (modell) query = query.ilike("modell", `%${modell}%`);
