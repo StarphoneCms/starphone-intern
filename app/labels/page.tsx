@@ -14,6 +14,7 @@ type LabelTemplate = {
   megapixel: string | null
   garantie: string | null
   farbe: string | null
+  zustand: string | null
   verkaufspreis: number | null
   aktiv: boolean
   created_at: string
@@ -26,6 +27,13 @@ type PrintJob = {
 }
 
 const GARANTIE_OPTIONS = ['Keine', '3 Monate', '6 Monate', '12 Monate', '24 Monate']
+const ZUSTAND_OPTIONS = ['Neu', 'Aussteller', 'Generalüberholt']
+
+const ZUSTAND_STYLES: Record<string, string> = {
+  'Neu':             'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+  'Aussteller':      'bg-amber-500/15   text-amber-400   border-amber-500/25',
+  'Generalüberholt': 'bg-blue-500/15    text-blue-400    border-blue-500/25',
+}
 
 // ─── Template Modal ─────────────────────────────────────────────────────────
 
@@ -43,6 +51,7 @@ function TemplateModal({ item, onClose, onSave }: {
     megapixel: item?.megapixel ?? '',
     garantie: item?.garantie ?? 'Keine',
     farbe: item?.farbe ?? '',
+    zustand: item?.zustand ?? 'Neu',
     verkaufspreis: item?.verkaufspreis?.toString() ?? '',
   })
   const [saving, setSaving] = useState(false)
@@ -64,6 +73,7 @@ function TemplateModal({ item, onClose, onSave }: {
         megapixel: form.megapixel || null,
         garantie: form.garantie === 'Keine' ? null : form.garantie,
         farbe: form.farbe || null,
+        zustand: form.zustand,
       }
       if (isNew) {
         const { error: err } = await supabase.from('label_templates').insert([payload])
@@ -93,14 +103,17 @@ function TemplateModal({ item, onClose, onSave }: {
         </div>
         <div className="px-6 py-5 space-y-4">
           {error && <div className="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">{error}</div>}
+
           <div className="grid grid-cols-2 gap-3">
             <div><label className={lbl}>Hersteller <span className="text-violet-400">*</span></label><input type="text" value={form.hersteller} onChange={e => set('hersteller', e.target.value)} placeholder="Apple" className={inp} /></div>
             <div><label className={lbl}>Modell <span className="text-violet-400">*</span></label><input type="text" value={form.modell} onChange={e => set('modell', e.target.value)} placeholder="iPhone 15 Pro" className={inp} /></div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div><label className={lbl}>Speicher</label><input type="text" value={form.speicher} onChange={e => set('speicher', e.target.value)} placeholder="128 GB" className={inp} /></div>
             <div><label className={lbl}>Megapixel</label><input type="text" value={form.megapixel} onChange={e => set('megapixel', e.target.value)} placeholder="48" className={inp} /></div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Garantie</label>
@@ -113,7 +126,29 @@ function TemplateModal({ item, onClose, onSave }: {
             </div>
             <div><label className={lbl}>Farbe</label><input type="text" value={form.farbe} onChange={e => set('farbe', e.target.value)} placeholder="Schwarz" className={inp} /></div>
           </div>
-          {/* Preis – wöchentlich anpassbar */}
+
+          {/* Zustand */}
+          <div>
+            <label className={lbl}>Zustand</label>
+            <div className="flex gap-2">
+              {ZUSTAND_OPTIONS.map(z => (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => set('zustand', z)}
+                  className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition ${
+                    form.zustand === z
+                      ? ZUSTAND_STYLES[z]
+                      : 'border-white/10 bg-white/5 text-slate-500 hover:text-white'
+                  }`}
+                >
+                  {z}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Preis */}
           <div>
             <label className={lbl}>
               Verkaufspreis (€)
@@ -170,7 +205,9 @@ function PrintQueueModal({ jobs, onClose, onPrint }: {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white truncate">{job.template.hersteller} {job.template.modell}</p>
-                {job.template.speicher && <p className="text-xs text-slate-500">{job.template.speicher}</p>}
+                <p className="text-xs text-slate-500">
+                  {[job.template.speicher, job.template.zustand].filter(Boolean).join(' · ')}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => updateAnzahl(idx, job.anzahl - 1)} className="w-6 h-6 rounded-lg bg-white/8 text-slate-400 hover:text-white flex items-center justify-center text-sm transition">−</button>
@@ -221,7 +258,6 @@ export default function LabelsPage() {
 
   useEffect(() => {
     load()
-    // Drucker-Status prüfen
     fetch('http://localhost:18080/status', { signal: AbortSignal.timeout(2000) })
       .then(r => setPrinterOnline(r.ok))
       .catch(() => setPrinterOnline(false))
@@ -251,12 +287,9 @@ export default function LabelsPage() {
     setPrintResult(null)
     setShowQueue(false)
     try {
-      // Alle Jobs nacheinander an BXLComWeb senden
       for (const job of jobs) {
         for (let i = 0; i < job.anzahl; i++) {
-          const zpl = job.type === 'small'
-            ? buildSmallZPL(job.template)
-            : buildLargeZPL(job.template)
+          const zpl = job.type === 'small' ? buildSmallZPL(job.template) : buildLargeZPL(job.template)
           const printer = job.type === 'small' ? 'BIXOLON SLP-TX223' : 'BIXOLON SLP-TX403'
           const res = await fetch('http://localhost:18080/print', {
             method: 'POST',
@@ -282,8 +315,6 @@ export default function LabelsPage() {
   }
 
   // ─── ZPL Builder ────────────────────────────────────────────────────────────
-  // SLP-TX223: 50x30mm @ 203dpi ≈ 400x240 dots
-  // SLP-TX403: 90x60mm @ 203dpi ≈ 720x480 dots
 
   function buildSmallZPL(t: LabelTemplate): string {
     const preis = t.verkaufspreis != null ? `${t.verkaufspreis.toFixed(2)} EUR` : ''
@@ -292,9 +323,10 @@ export default function LabelsPage() {
       '^CF0,20', `^FO10,8^FD${t.hersteller} ${t.modell}^FS`,
       '^FO10,32^GB380,1,1^FS',
       '^CF0,16',
-      t.speicher ? `^FO10,38^FDSpeicher: ${t.speicher}^FS` : '',
-      t.megapixel ? `^FO10,56^FDKamera: ${t.megapixel} MP^FS` : '',
-      t.garantie ? `^FO10,74^FDGarantie: ${t.garantie}^FS` : '',
+      t.speicher   ? `^FO10,38^FDSpeicher: ${t.speicher}^FS`    : '',
+      t.megapixel  ? `^FO10,56^FDKamera: ${t.megapixel} MP^FS`  : '',
+      t.garantie   ? `^FO10,74^FDGarantie: ${t.garantie}^FS`    : '',
+      t.zustand    ? `^FO10,92^FDZustand: ${t.zustand}^FS`      : '',
       '^FO10,130^GB380,1,1^FS',
       '^CF0,28', `^FO200,138^FD${preis}^FS`,
       '^XZ'
@@ -303,18 +335,21 @@ export default function LabelsPage() {
 
   function buildLargeZPL(t: LabelTemplate): string {
     const preis = t.verkaufspreis != null ? `${t.verkaufspreis.toFixed(2)} EUR` : ''
+    const details = [
+      t.speicher  ? `Speicher: ${t.speicher}` : null,
+      t.megapixel ? `${t.megapixel} MP`       : null,
+      t.garantie  ? `${t.garantie} Garantie`  : null,
+      t.farbe     ? t.farbe                   : null,
+      t.zustand   ? t.zustand                 : null,
+    ].filter(Boolean)
+
     return [
       '^XA', '^CI28',
       '^CF0,48', `^FO20,15^FD${t.hersteller}^FS`,
       '^CF0,40', `^FO20,70^FD${t.modell}^FS`,
       '^FO20,120^GB680,2,2^FS',
       '^CF0,22',
-      [
-        t.speicher ? `Speicher: ${t.speicher}` : null,
-        t.megapixel ? `${t.megapixel} MP` : null,
-        t.garantie ? `${t.garantie} Garantie` : null,
-        t.farbe ? t.farbe : null,
-      ].filter(Boolean).map((v, i) => `^FO${20 + i * 170},130^FD${v}^FS`).join('\n'),
+      details.map((v, i) => `^FO${20 + i * 150},130^FD${v}^FS`).join('\n'),
       '^FO20,165^GB680,2,2^FS',
       '^CF0,80', `^FO20,180^FD${preis}^FS`,
       '^XZ'
@@ -366,18 +401,11 @@ export default function LabelsPage() {
           <div className="mb-4 flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
             <span className="text-sm text-indigo-300 font-medium">{selected.size} ausgewählt</span>
             <div className="flex items-center gap-1 ml-auto">
-              {/* Etikett-Typ wählen */}
               <div className="flex rounded-lg bg-white/5 border border-white/10 overflow-hidden text-xs">
-                <button
-                  onClick={() => setSelectedType('small')}
-                  className={`px-3 py-1.5 font-medium transition ${selectedType === 'small' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-400 hover:text-white'}`}
-                >
+                <button onClick={() => setSelectedType('small')} className={`px-3 py-1.5 font-medium transition ${selectedType === 'small' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-400 hover:text-white'}`}>
                   Klein (TX223)
                 </button>
-                <button
-                  onClick={() => setSelectedType('large')}
-                  className={`px-3 py-1.5 font-medium transition ${selectedType === 'large' ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-white'}`}
-                >
+                <button onClick={() => setSelectedType('large')} className={`px-3 py-1.5 font-medium transition ${selectedType === 'large' ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-white'}`}>
                   Groß (TX403)
                 </button>
               </div>
@@ -386,24 +414,22 @@ export default function LabelsPage() {
                 disabled={printing}
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:opacity-90 transition disabled:opacity-50"
               >
-                {printing
-                  ? <div className="w-3.5 h-3.5 rounded-full border border-white border-t-transparent animate-spin" />
-                  : <Printer className="w-3.5 h-3.5" />}
+                {printing ? <div className="w-3.5 h-3.5 rounded-full border border-white border-t-transparent animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
                 Drucken
               </button>
             </div>
           </div>
         )}
 
-        {/* Drucker offline Hinweis */}
+        {/* Drucker offline */}
         {printerOnline === false && (
           <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 text-sm text-amber-400">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>BXLComWeb nicht erreichbar. Bitte <strong>Bixolon Printer Manager</strong> starten und sicherstellen dass der Service läuft.</span>
+            <span>BXLComWeb nicht erreichbar. Bitte <strong>Bixolon Printer Manager</strong> starten.</span>
           </div>
         )}
 
-        {/* Vorlagen */}
+        {/* Tabelle */}
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-6 h-6 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
@@ -426,7 +452,7 @@ export default function LabelsPage() {
                       {allSelected ? <CheckSquare className="w-4 h-4 text-indigo-400" /> : <Square className="w-4 h-4" />}
                     </button>
                   </th>
-                  {['Hersteller', 'Modell', 'Speicher', 'Megapixel', 'Garantie', 'Farbe', 'Preis', ''].map(h => (
+                  {['Hersteller', 'Modell', 'Speicher', 'Megapixel', 'Garantie', 'Farbe', 'Zustand', 'Preis', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -448,6 +474,13 @@ export default function LabelsPage() {
                       <td className="px-4 py-3.5 text-sm text-slate-400">{t.garantie ?? '—'}</td>
                       <td className="px-4 py-3.5 text-sm text-slate-400">{t.farbe ?? '—'}</td>
                       <td className="px-4 py-3.5">
+                        {t.zustand ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${ZUSTAND_STYLES[t.zustand] ?? 'bg-white/10 text-slate-400 border-white/10'}`}>
+                            {t.zustand}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="px-4 py-3.5">
                         {t.verkaufspreis != null
                           ? <span className="text-sm font-semibold text-emerald-400">{t.verkaufspreis.toFixed(2)} €</span>
                           : <span className="text-sm text-amber-400">Kein Preis</span>}
@@ -467,7 +500,6 @@ export default function LabelsPage() {
         )}
       </div>
 
-      {/* Modals */}
       {modalItem !== undefined && <TemplateModal item={modalItem} onClose={() => setModalItem(undefined)} onSave={load} />}
       {showQueue && <PrintQueueModal jobs={buildPrintJobs()} onClose={() => setShowQueue(false)} onPrint={handlePrint} />}
     </div>
