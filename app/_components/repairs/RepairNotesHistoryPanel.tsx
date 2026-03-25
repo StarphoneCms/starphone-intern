@@ -14,11 +14,11 @@ type NoteEvent = {
   created_at: string;
 };
 
-function label(action: NoteEvent["action"]) {
-  if (action === "create") return "Notiz erstellt";
-  if (action === "edit") return "Notiz bearbeitet";
-  return "Notiz gelöscht";
-}
+const ACTION_CONFIG = {
+  create: { label: "Notiz erstellt",    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  edit:   { label: "Notiz bearbeitet",  color: "text-amber-400   bg-amber-500/10   border-amber-500/20" },
+  delete: { label: "Notiz gelöscht",    color: "text-rose-400    bg-rose-500/10    border-rose-500/20" },
+};
 
 export function RepairNotesHistoryPanel({ repairId }: { repairId: string }) {
   const [events, setEvents] = useState<NoteEvent[]>([]);
@@ -40,75 +40,78 @@ export function RepairNotesHistoryPanel({ repairId }: { repairId: string }) {
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repairId]);
+  useEffect(() => { load(); }, [repairId]);
 
   return (
-    <div className="rounded-xl border p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold">Notizen-Verlauf</h3>
-        <button className="text-sm underline disabled:opacity-50" onClick={load} disabled={loading}>
-          Neu laden
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          onClick={load}
+          disabled={loading}
+          className="text-xs text-slate-500 hover:text-white transition disabled:opacity-40"
+        >
+          ↻ Neu laden
         </button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-400 px-1">{error}</p>}
 
       {loading ? (
-        <p className="text-sm opacity-70">Lade…</p>
+        <div className="flex justify-center py-8">
+          <div className="w-5 h-5 rounded-full border-2 border-violet-500/30 border-t-violet-500 animate-spin" />
+        </div>
       ) : events.length === 0 ? (
-        <p className="text-sm opacity-70">Noch kein Verlauf vorhanden.</p>
+        <p className="text-sm text-slate-600 text-center py-6">Noch kein Verlauf vorhanden.</p>
       ) : (
         <div className="space-y-2">
-          {events.map((e) => (
-            <div key={e.id} className="rounded-lg bg-black/5 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium">{label(e.action)}</div>
-                <div className="text-xs opacity-70">{new Date(e.created_at).toLocaleString()}</div>
-              </div>
-
-              <div className="text-xs opacity-70 break-all">
-                 Actor: {e.actor?.label ?? e.actor_id} · {e.actor_id}
+          {events.map((e) => {
+            const cfg = ACTION_CONFIG[e.action];
+            return (
+              <div key={e.id} className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-xs font-semibold ${cfg.color}`}>
+                    {cfg.label}
+                  </span>
+                  <span className="text-xs text-slate-600">
+                    {new Date(e.created_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
                 </div>
 
-              {e.action === "edit" && (
-                <div className="grid gap-2">
-                  <div>
-                    <div className="text-xs opacity-70 mb-1">Vorher</div>
-                    <div className="rounded-md border bg-white/60 p-2 text-sm whitespace-pre-wrap">
-                      {e.before_note ?? "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs opacity-70 mb-1">Nachher</div>
-                    <div className="rounded-md border bg-white/60 p-2 text-sm whitespace-pre-wrap">
-                      {e.after_note ?? "—"}
-                    </div>
-                  </div>
-                </div>
-              )}
+                <p className="text-xs text-slate-600">
+                  von {e.actor?.label ?? e.actor_id.slice(0, 8) + "..."}
+                </p>
 
-              {e.action === "create" && (
-                <div>
-                  <div className="text-xs opacity-70 mb-1">Inhalt</div>
-                  <div className="rounded-md border bg-white/60 p-2 text-sm whitespace-pre-wrap">
+                {e.action === "create" && (
+                  <div className="rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-sm text-slate-300 whitespace-pre-wrap">
                     {e.after_note ?? "—"}
                   </div>
-                </div>
-              )}
+                )}
 
-              {e.action === "delete" && (
-                <div>
-                  <div className="text-xs opacity-70 mb-1">Gelöschter Inhalt</div>
-                  <div className="rounded-md border bg-white/60 p-2 text-sm whitespace-pre-wrap">
+                {e.action === "edit" && (
+                  <div className="grid gap-2">
+                    <div>
+                      <p className="text-xs text-slate-600 mb-1">Vorher</p>
+                      <div className="rounded-lg border border-white/8 bg-red-500/5 px-3 py-2 text-sm text-slate-400 whitespace-pre-wrap line-through opacity-60">
+                        {e.before_note ?? "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-600 mb-1">Nachher</p>
+                      <div className="rounded-lg border border-white/8 bg-emerald-500/5 px-3 py-2 text-sm text-slate-300 whitespace-pre-wrap">
+                        {e.after_note ?? "—"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {e.action === "delete" && (
+                  <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-sm text-rose-400/70 whitespace-pre-wrap line-through">
                     {e.before_note ?? "—"}
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
