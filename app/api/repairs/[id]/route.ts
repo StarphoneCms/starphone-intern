@@ -1,6 +1,22 @@
 import { NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 
+const STATUS_LABELS: Record<string, string> = {
+  angenommen:    "Angenommen",
+  in_arbeit:     "In Arbeit",
+  in_reparatur:  "In Reparatur",
+  fertig:        "Abholbereit",
+  abholbereit:   "Abholbereit",
+  abgeholt:      "Abgeholt",
+  abgeschlossen: "Abgeschlossen",
+  storniert:     "Storniert",
+};
+
+function statusLabel(status: string | null | undefined): string {
+  if (!status) return "Unbekannt";
+  return STATUS_LABELS[status.trim().toLowerCase()] ?? status;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -55,7 +71,7 @@ export async function PATCH(
     );
   }
 
-  // ALTEN STATUS LADEN
+  // Alten Status laden
   const { data: before, error: beforeError } = await supabase
     .from("repairs")
     .select("id, status")
@@ -83,7 +99,7 @@ export async function PATCH(
     "reparatur_problem",
   ] as const;
 
-  const update: Record<string, any> = {};
+  const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key] ?? null;
   }
@@ -116,11 +132,11 @@ export async function PATCH(
     );
   }
 
-  // STATUSWECHSEL INS JOURNAL
+  // Statuswechsel ins Journal – mit lesbaren Labels
   if (before?.status !== data?.status) {
     await supabase.from("repair_notes").insert({
       repair_id: id,
-      note: `Status geändert: ${before?.status ?? "Unbekannt"} → ${data?.status ?? "Unbekannt"}`,
+      note: `Status geändert: ${statusLabel(before?.status)} → ${statusLabel(data?.status)}`,
       created_by: auth.user.id,
     });
   }
