@@ -7,7 +7,7 @@ import DashboardBoardClient, {
 } from "./DashboardBoardClient";
 import StatistikClient from "./StatistikClient";
 
-function normalizeStatus(status: string | null) {
+function normalizeStatus(status: string | null): DashboardRepair["boardStatus"] {
   const value = (status ?? "").trim().toLowerCase();
   if (["angenommen", "offen", "neu"].includes(value)) return "Angenommen";
   if (["in_diagnose", "in diagnose", "diagnose"].includes(value)) return "In Diagnose";
@@ -16,12 +16,12 @@ function normalizeStatus(status: string | null) {
   if (["in_reparatur", "in reparatur", "in_arbeit"].includes(value)) return "In Reparatur";
   if (["abholbereit", "fertig"].includes(value)) return "Abholbereit";
   if (["abgeschlossen", "abgeholt"].includes(value)) return "Abgeschlossen";
+  if (value === "storniert") return "Storniert";
   return "Angenommen";
 }
 
 function getMonthLabel(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleString("de-DE", { month: "short", year: "2-digit" });
+  return new Date(dateStr).toLocaleString("de-DE", { month: "short", year: "2-digit" });
 }
 
 type PageProps = { searchParams: Promise<{ tab?: string }> };
@@ -45,9 +45,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   if (error) {
     return (
-      <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-300">
+      <main className="min-h-screen bg-white px-6 py-8">
+        <h1 className="text-xl font-medium text-gray-900">Dashboard</h1>
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Fehler: {error.message}
         </div>
       </main>
@@ -55,7 +55,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
 
   const allRepairs = repairs ?? [];
-  const items: DashboardRepair[] = (allRepairs as Omit<DashboardRepair, "boardStatus">[]).map((r) => ({
+  const items: DashboardRepair[] = allRepairs.map((r) => ({
     ...r,
     boardStatus: normalizeStatus(r.status),
   }));
@@ -70,15 +70,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ["In Diagnose", "Ersatzteil bestellt", "In Reparatur", "Rückfrage Kunde"].includes(r.boardStatus)
   ).length;
 
-  // Statistik Daten
+  // Statistik
   const STATUS_CONFIG = [
-    { name: "Angenommen", color: "#f59e0b" },
-    { name: "In Diagnose", color: "#3b82f6" },
-    { name: "Rückfrage Kunde", color: "#f97316" },
-    { name: "Ersatzteil bestellt", color: "#8b5cf6" },
-    { name: "In Reparatur", color: "#6366f1" },
-    { name: "Abholbereit", color: "#10b981" },
-    { name: "Abgeschlossen", color: "#475569" },
+    { name: "Angenommen",          color: "#D97706" },
+    { name: "In Diagnose",         color: "#2563EB" },
+    { name: "Rückfrage Kunde",     color: "#DC2626" },
+    { name: "Ersatzteil bestellt", color: "#7C3AED" },
+    { name: "In Reparatur",        color: "#4338CA" },
+    { name: "Abholbereit",         color: "#059669" },
+    { name: "Abgeschlossen",       color: "#6B7280" },
   ];
   const statusData = STATUS_CONFIG.map((s) => ({
     ...s,
@@ -110,85 +110,85 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const doneRepairs = allRepairs.filter((r) => normalizeStatus(r.status) === "Abgeschlossen" && r.annahme_datum && r.updated_at);
   let avgDuration: number | null = null;
   if (doneRepairs.length > 0) {
-    const totalDays = doneRepairs.reduce((sum, r) => {
-      return sum + (new Date(r.updated_at!).getTime() - new Date(r.annahme_datum!).getTime()) / 86400000;
-    }, 0);
+    const totalDays = doneRepairs.reduce((sum, r) =>
+      sum + (new Date(r.updated_at!).getTime() - new Date(r.annahme_datum!).getTime()) / 86400000, 0);
     avgDuration = Math.round(totalDays / doneRepairs.length);
   }
 
-  const kpiCards = [
-    { label: "Aktive Aufträge", value: openCount, color: "from-violet-600/20 to-violet-600/5", border: "border-violet-500/20", text: "text-violet-200" },
-    { label: "In Bearbeitung", value: inProgressCount, color: "from-indigo-600/20 to-indigo-600/5", border: "border-indigo-500/20", text: "text-indigo-200" },
-    { label: "Abholbereit", value: readyCount, color: "from-emerald-600/20 to-emerald-600/5", border: "border-emerald-500/20", text: "text-emerald-200" },
-    { label: "Gesamt", value: totalCount, sub: `${doneCount} abgeschlossen`, color: "from-slate-600/20 to-slate-600/5", border: "border-slate-500/20", text: "text-slate-200" },
-  ];
+  const today = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
-      {/* Hintergrund Glow */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-        <div className="absolute -top-60 left-1/3 w-[800px] h-[800px] rounded-full bg-violet-600/8 blur-[140px]" />
-        <div className="absolute top-1/2 right-0 w-[500px] h-[500px] rounded-full bg-indigo-600/6 blur-[120px]" />
-      </div>
+    <main className="min-h-screen bg-[#F5F5F7] px-4 py-6 md:px-6 xl:px-8">
+      <div className="max-w-[1600px] mx-auto space-y-5">
 
-      <div className="w-full space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        {/* ─── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-              WERKSTATT · LIVE
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-500">Starphone Intern · {auth.user.email}</p>
+            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
+            <p className="text-sm text-gray-400 mt-0.5">{today}</p>
           </div>
           <Link
             href="/repairs/new"
-            className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700 transition-colors"
           >
-            + Neuer Auftrag
+            <span className="text-base leading-none">+</span>
+            Neuer Auftrag
           </Link>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {kpiCards.map((card) => (
-            <div
-              key={card.label}
-              className={`rounded-2xl border ${card.border} bg-gradient-to-br ${card.color} backdrop-blur-sm p-5`}
-            >
-              <div className="text-sm text-slate-400">{card.label}</div>
-              <div className={`mt-2 text-4xl font-bold ${card.text}`}>{card.value}</div>
-              {card.sub && <div className="mt-1 text-xs text-slate-500">{card.sub}</div>}
-            </div>
-          ))}
+        {/* ─── KPI Cards ───────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          <KpiCard
+            label="Aktive Aufträge"
+            value={openCount}
+            dotColor="bg-amber-400"
+            hint={`${inProgressCount} in Bearbeitung`}
+          />
+          <KpiCard
+            label="Rückfrage Kunde"
+            value={items.filter(r => r.boardStatus === "Rückfrage Kunde").length}
+            dotColor="bg-red-500"
+            urgent
+          />
+          <KpiCard
+            label="Abholbereit"
+            value={readyCount}
+            dotColor="bg-emerald-500"
+            hint="Warten auf Abholung"
+          />
+          <KpiCard
+            label="Gesamt"
+            value={totalCount}
+            dotColor="bg-gray-400"
+            hint={`${doneCount} abgeschlossen`}
+          />
         </div>
 
-        {/* Tabs */}
-        <div className="inline-flex rounded-xl border border-white/8 bg-white/4 backdrop-blur-sm p-1">
+        {/* ─── Tabs ────────────────────────────────────────────────────────── */}
+        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit shadow-sm">
           <Link
             href="/dashboard"
-            className={`rounded-lg px-5 py-2 text-sm font-medium transition ${
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === "werkstatt"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-400 hover:text-white"
+                ? "bg-gray-900 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            🪛 Werkstatt
+            Werkstatt
           </Link>
           <Link
             href="/dashboard?tab=statistik"
-            className={`rounded-lg px-5 py-2 text-sm font-medium transition ${
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === "statistik"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-400 hover:text-white"
+                ? "bg-gray-900 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            📊 Statistik
+            Statistik
           </Link>
         </div>
 
-        {/* Tab Inhalt */}
+        {/* ─── Content ─────────────────────────────────────────────────────── */}
         {activeTab === "werkstatt" ? (
           <DashboardBoardClient initialItems={items} />
         ) : (
@@ -203,5 +203,34 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         )}
       </div>
     </main>
+  );
+}
+
+// ─── KPI Card Komponente ──────────────────────────────────────────────────────
+
+function KpiCard({ label, value, dotColor, hint, urgent }: {
+  label: string;
+  value: number;
+  dotColor: string;
+  hint?: string;
+  urgent?: boolean;
+}) {
+  return (
+    <div className={`
+      rounded-2xl p-5 border transition-all
+      ${urgent && value > 0
+        ? "bg-red-50 border-red-200"
+        : "bg-white border-gray-200 shadow-sm"
+      }
+    `}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`w-2 h-2 rounded-full ${dotColor} ${urgent && value > 0 ? "animate-pulse" : ""}`} />
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</span>
+      </div>
+      <div className={`text-4xl font-semibold tracking-tight ${urgent && value > 0 ? "text-red-600" : "text-gray-900"}`}>
+        {value}
+      </div>
+      {hint && <div className="text-xs text-gray-400 mt-1.5">{hint}</div>}
+    </div>
   );
 }

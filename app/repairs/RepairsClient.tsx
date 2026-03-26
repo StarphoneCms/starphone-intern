@@ -1,260 +1,170 @@
 "use client";
 
+// Pfad: src/app/repairs/RepairsClient.tsx
+// CLIENT COMPONENT – nur Filter/Suche/Tabelle, kein Supabase
+
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RepairListItem } from "./page";
+import { StatusPill, RepairStatus } from "@/lib/repair-types";
 
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+const FILTER_TABS: { key: string; label: string }[] = [
+  { key: "alle",                label: "Alle"          },
+  { key: "angenommen",          label: "Angenommen"    },
+  { key: "in_diagnose",         label: "In Diagnose"   },
+  { key: "in_reparatur",        label: "In Reparatur"  },
+  { key: "rueckfrage_kunde",    label: "Rückfrage"     },
+  { key: "ersatzteil_bestellt", label: "Ersatzteil"    },
+  { key: "abholbereit",         label: "Abholbereit"   },
+  { key: "abgeschlossen",       label: "Abgeschlossen" },
+];
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("de-DE", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+  });
 }
 
-function getStatusBadge(status: string | null) {
-  const value = (status ?? "").trim().toLowerCase();
-  if (["offen", "neu", "angenommen"].includes(value)) return "border-amber-500/30 bg-amber-500/10 text-amber-300";
-  if (["in_diagnose", "in diagnose", "diagnose"].includes(value)) return "border-orange-500/30 bg-orange-500/10 text-orange-300";
-  if (["rueckfrage_kunde", "rückfrage kunde"].includes(value)) return "border-rose-500/30 bg-rose-500/10 text-rose-300";
-  if (["ersatzteil_bestellt", "ersatzteil bestellt"].includes(value)) return "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300";
-  if (["in_reparatur", "in reparatur", "reparatur"].includes(value)) return "border-violet-500/30 bg-violet-500/10 text-violet-300";
-  if (["fertig", "abholbereit"].includes(value)) return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
-  if (["abgeschlossen", "abgeholt"].includes(value)) return "border-slate-500/30 bg-slate-500/10 text-slate-400";
-  return "border-white/15 bg-white/8 text-white/60";
-}
-
-const selectClass = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-300 outline-none focus:border-violet-500/50 transition cursor-pointer";
-const inputClass = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 transition";
-
-export default function RepairsClient({ initialRepairs }: { initialRepairs: RepairListItem[] }) {
+export default function RepairsClient({
+  initialRepairs,
+}: {
+  initialRepairs: RepairListItem[];
+}) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("alle");
-  const [manufacturerFilter, setManufacturerFilter] = useState("alle");
-  const [modelFilter, setModelFilter] = useState("alle");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [onlyOpen, setOnlyOpen] = useState(false);
-  const [onlyReady, setOnlyReady] = useState(false);
-
-  const manufacturers = useMemo(() =>
-    Array.from(new Set(initialRepairs.map((r) => r.hersteller?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "de")),
-    [initialRepairs]);
-
-  const models = useMemo(() =>
-    Array.from(new Set(initialRepairs.map((r) => r.modell?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "de")),
-    [initialRepairs]);
-
-  const statuses = useMemo(() =>
-    Array.from(new Set(initialRepairs.map((r) => r.status?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "de")),
-    [initialRepairs]);
+  const [filter, setFilter] = useState("alle");
+  const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return initialRepairs.filter((r) => {
-      const haystack = [r.auftragsnummer, r.kunden_name, r.kunden_telefon, r.kunden_email, r.hersteller, r.modell, r.geraetetyp, r.imei, r.geraete_code, r.reparatur_problem, r.status]
-        .filter(Boolean).join(" ").toLowerCase();
-      const matchesQuery = !needle || haystack.includes(needle);
-      const matchesStatus = statusFilter === "alle" || (r.status ?? "").toLowerCase() === statusFilter.toLowerCase();
-      const matchesMfr = manufacturerFilter === "alle" || (r.hersteller ?? "").toLowerCase() === manufacturerFilter.toLowerCase();
-      const matchesModel = modelFilter === "alle" || (r.modell ?? "").toLowerCase() === modelFilter.toLowerCase();
-      const parsedDate = r.annahme_datum || r.created_at ? new Date(r.annahme_datum || r.created_at!) : null;
-      const matchesFrom = !dateFrom || (parsedDate ? parsedDate >= new Date(`${dateFrom}T00:00:00`) : false);
-      const matchesTo = !dateTo || (parsedDate ? parsedDate <= new Date(`${dateTo}T23:59:59`) : false);
-      const statusVal = (r.status ?? "").toLowerCase();
-      const matchesOpen = !onlyOpen || !["abgeschlossen", "abgeholt"].includes(statusVal);
-      const matchesReady = !onlyReady || ["fertig", "abholbereit"].includes(statusVal);
-      return matchesQuery && matchesStatus && matchesMfr && matchesModel && matchesFrom && matchesTo && matchesOpen && matchesReady;
+      if (filter !== "alle" && r.status !== filter) return false;
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        r.auftragsnummer.toLowerCase().includes(q) ||
+        r.kunden_name.toLowerCase().includes(q) ||
+        (r.kunden_telefon ?? "").includes(q) ||
+        r.hersteller.toLowerCase().includes(q) ||
+        r.modell.toLowerCase().includes(q) ||
+        r.reparatur_problem.toLowerCase().includes(q)
+      );
     });
-  }, [initialRepairs, query, statusFilter, manufacturerFilter, modelFilter, dateFrom, dateTo, onlyOpen, onlyReady]);
-
-  const activeCount = useMemo(() => initialRepairs.filter((r) => !["abgeschlossen", "abgeholt"].includes((r.status ?? "").toLowerCase())).length, [initialRepairs]);
-  const readyCount = useMemo(() => initialRepairs.filter((r) => ["fertig", "abholbereit"].includes((r.status ?? "").toLowerCase())).length, [initialRepairs]);
-
-  function resetFilters() {
-    setQuery(""); setStatusFilter("alle"); setManufacturerFilter("alle");
-    setModelFilter("alle"); setDateFrom(""); setDateTo("");
-    setOnlyOpen(false); setOnlyReady(false); router.refresh();
-  }
+  }, [initialRepairs, filter, search]);
 
   return (
-    <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
-      {/* Glow */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-        <div className="absolute -top-60 right-1/3 w-[700px] h-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] rounded-full bg-indigo-600/6 blur-[100px]" />
+    <>
+      {/* Search + Filter */}
+      <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
+        <div className="relative max-w-xs w-full">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none"
+            width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2" />
+            <line x1="7.5" y1="7.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Auftrag, Kunde, Gerät …"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-8 pl-8 pr-8 text-[12px] rounded-lg border border-gray-200 bg-white placeholder-gray-300 text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300"
+          />
+          {search && (
+            <button onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          {FILTER_TABS.map(({ key, label }) => {
+            const count = key === "alle"
+              ? initialRepairs.length
+              : initialRepairs.filter((r) => r.status === key).length;
+            return (
+              <button key={key} onClick={() => setFilter(key)}
+                className={[
+                  "shrink-0 h-8 px-3 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap",
+                  filter === key ? "bg-black text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200",
+                ].join(" ")}>
+                {label}
+                <span className={["ml-1.5 text-[10px]", filter === key ? "opacity-60" : "opacity-50"].join(" ")}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="w-full space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
-              🪛 REPARATUREN · ÜBERSICHT
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Reparaturen</h1>
-            <p className="mt-1 text-sm text-slate-500">Filter- und Verwaltungsansicht aller Aufträge</p>
+      {/* Tabelle */}
+      <div className="rounded-xl border border-gray-100 overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-1.5">
+            <p className="text-[13px] font-medium text-gray-900">Keine Einträge</p>
+            <p className="text-[12px] text-gray-400">Filter anpassen oder neuen Auftrag erstellen</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={resetFilters}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8"
-            >
-              Zurücksetzen
-            </button>
-            <Link href="/dashboard" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
-              Werkstatt
-            </Link>
-            <Link href="/repairs/new" className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90">
-              + Neuer Auftrag
-            </Link>
-          </div>
-        </div>
-
-        {/* KPI */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-            <div className="text-sm text-slate-500">Gesamt</div>
-            <div className="mt-2 text-4xl font-bold text-white">{initialRepairs.length}</div>
-          </div>
-          <div className="rounded-2xl border border-violet-500/20 bg-violet-500/8 backdrop-blur-sm p-5">
-            <div className="text-sm text-violet-400">Aktive Aufträge</div>
-            <div className="mt-2 text-4xl font-bold text-violet-200">{activeCount}</div>
-          </div>
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 backdrop-blur-sm p-5">
-            <div className="text-sm text-emerald-400">Abholbereit</div>
-            <div className="mt-2 text-4xl font-bold text-emerald-200">{readyCount}</div>
-          </div>
-        </div>
-
-        {/* Filter Panel */}
-        <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5 space-y-4">
-          <div className="grid gap-3 xl:grid-cols-5">
-            <div>
-              <div className="mb-1.5 text-xs uppercase tracking-wide text-slate-600">Suche</div>
-              <input value={query} onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name, Auftragsnr., IMEI..."
-                className={inputClass} />
-            </div>
-            <div>
-              <div className="mb-1.5 text-xs uppercase tracking-wide text-slate-600">Status</div>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
-                <option value="alle">Alle Status</option>
-                {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <div className="mb-1.5 text-xs uppercase tracking-wide text-slate-600">Hersteller</div>
-              <select value={manufacturerFilter} onChange={(e) => setManufacturerFilter(e.target.value)} className={selectClass}>
-                <option value="alle">Alle Hersteller</option>
-                {manufacturers.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <div className="mb-1.5 text-xs uppercase tracking-wide text-slate-600">Modell</div>
-              <select value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} className={selectClass}>
-                <option value="alle">Alle Modelle</option>
-                {models.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="mb-1.5 text-xs uppercase tracking-wide text-slate-600">Von</div>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <div className="mb-1.5 text-xs uppercase tracking-wide text-slate-600">Bis</div>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputClass} />
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Filter Pills */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <button type="button" onClick={() => { setOnlyOpen(!onlyOpen); if (!onlyOpen) setOnlyReady(false); }}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${onlyOpen ? "border-violet-500/40 bg-violet-500/15 text-violet-300" : "border-white/10 bg-white/5 text-slate-500 hover:text-white"}`}>
-              Nur offen
-            </button>
-            <button type="button" onClick={() => { setOnlyReady(!onlyReady); if (!onlyReady) setOnlyOpen(false); }}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${onlyReady ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300" : "border-white/10 bg-white/5 text-slate-500 hover:text-white"}`}>
-              Nur abholbereit
-            </button>
-            <span className="text-xs text-slate-600 ml-auto">
-              <span className="text-white font-semibold">{filtered.length}</span> / {initialRepairs.length} Aufträge
-            </span>
-          </div>
-        </div>
-
-        {/* Tabelle */}
-        <div className="rounded-2xl border border-white/8 bg-white/3 backdrop-blur-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-white/6">
-                <tr className="text-left text-xs text-slate-600 uppercase tracking-wide">
-                  <th className="px-5 py-3 font-medium">Auftragsnr.</th>
-                  <th className="px-5 py-3 font-medium">Kunde</th>
-                  <th className="px-5 py-3 font-medium">Gerät</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Annahme</th>
-                  <th className="px-5 py-3 font-medium">Update</th>
-                  <th className="px-5 py-3 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-5 py-16 text-center text-slate-600 text-sm">
-                      Keine Reparaturen gefunden.
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">Auftrag</th>
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Kunde</th>
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">Gerät</th>
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider hidden md:table-cell">Problem</th>
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-2.5 text-right text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Datum</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map((repair) => {
+                const displayName = repair.customers
+                  ? `${repair.customers.first_name} ${repair.customers.last_name}`
+                  : repair.kunden_name;
+                const phone = repair.customers?.phone ?? repair.kunden_telefon;
+                return (
+                  <tr
+                    key={repair.id}
+                    onClick={() => router.push(`/repairs/${repair.id}`)}
+                    className="hover:bg-gray-50/80 transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-[11.5px] font-medium text-gray-900">
+                        {repair.auftragsnummer}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      <p className="text-[12.5px] font-medium text-gray-800 leading-tight">{displayName}</p>
+                      {phone && <p className="text-[11px] text-gray-400 mt-0.5">{phone}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-[12.5px] font-medium text-gray-900 leading-tight">{repair.hersteller}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{repair.modell}</p>
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell max-w-[220px]">
+                      <p className="text-[11.5px] text-gray-400 truncate">{repair.reparatur_problem || "—"}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusPill status={repair.status as RepairStatus} />
+                    </td>
+                    <td className="px-4 py-3 text-right hidden sm:table-cell">
+                      <span className="text-[11px] text-gray-400">{formatDate(repair.annahme_datum)}</span>
                     </td>
                   </tr>
-                ) : (
-                  filtered.map((r) => (
-                    <tr key={r.id} className="transition hover:bg-white/4">
-                      <td className="px-5 py-4">
-                        <div className="font-mono text-sm font-medium text-white">
-                          {r.auftragsnummer || r.id.slice(0, 8)}
-                        </div>
-                        <div className="text-xs text-slate-600 mt-0.5 font-mono">{r.id.slice(0, 8)}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-sm font-medium text-slate-200">{r.kunden_name || "—"}</div>
-                        <div className="text-xs text-slate-600 mt-0.5">{r.kunden_telefon || r.kunden_email || "Keine Kontaktdaten"}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-sm font-medium text-slate-200">
-                          {[r.hersteller, r.modell].filter(Boolean).join(" ") || "—"}
-                        </div>
-                        <div className="text-xs text-slate-600 mt-0.5">
-                          {[r.geraetetyp, r.imei].filter(Boolean).join(" · ") || r.geraete_code || "—"}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(r.status)}`}>
-                          {r.status || "—"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-xs text-slate-500 tabular-nums">
-                        {formatDate(r.annahme_datum || r.created_at)}
-                      </td>
-                      <td className="px-5 py-4 text-xs text-slate-500 tabular-nums">
-                        {formatDate(r.updated_at || r.letzter_statuswechsel || r.created_at)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <Link href={`/repairs/${r.id}`}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:border-violet-500/30 hover:text-violet-300">
-                          Öffnen →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
-    </main>
+
+      {filtered.length > 0 && (
+        <p className="text-[11px] text-gray-300 mt-3 text-right">
+          {filtered.length} von {initialRepairs.length} Einträgen
+        </p>
+      )}
+    </>
   );
 }

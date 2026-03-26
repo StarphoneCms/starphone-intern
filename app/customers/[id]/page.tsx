@@ -1,345 +1,258 @@
-"use client";
+// Pfad: src/app/customers/[id]/page.tsx
+// SERVER COMPONENT
 
+import { createServerComponentClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { StatusPill, RepairStatus } from "@/lib/repair-types";
 
-const DEVICE_TYPES = ["Smartphone", "Tablet", "Smartwatch", "Laptop", "PC", "Konsole", "Sonstiges"];
+export default async function CustomerDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const supabase = await createServerComponentClient();
 
-const QUICK_PROBLEMS = [
-  { label: "🖥️ Display gebrochen", text: "Display gebrochen / Displayschaden" },
-  { label: "🔋 Lädt nicht", text: "Gerät lädt nicht / Ladeproblem" },
-  { label: "💧 Wasserschaden", text: "Wasserschaden" },
-  { label: "🎙️ Mikro / Lautsprecher", text: "Mikrofon / Lautsprecher defekt" },
-  { label: "🔋 Akku tauschen", text: "Akku tauschen" },
-  { label: "📷 Kamera defekt", text: "Kamera defekt" },
-  { label: "🔒 PIN vergessen", text: "Entsperrt / PIN vergessen" },
-];
+  // Kunde laden
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("id", params.id)
+    .single();
 
-type CustomerResult = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  customer_code: string | null;
-};
+  if (!customer) notFound();
 
-function InputField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">
-        {label}{required && <span className="text-rose-400 ml-1">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
+  // Reparaturen des Kunden laden
+  const { data: repairs } = await supabase
+    .from("repairs")
+    .select("id, auftragsnummer, status, hersteller, modell, reparatur_problem, annahme_datum")
+    .eq("customer_id", params.id)
+    .order("annahme_datum", { ascending: false });
 
-const inputClass = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition";
+  const repairList = repairs ?? [];
 
-export default function NewRepairPage() {
-  const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<CustomerResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(null);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const problemRef = useRef<HTMLTextAreaElement>(null);
+  const createdDate = new Date(customer.created_at).toLocaleDateString("de-DE", {
+    day: "2-digit", month: "long", year: "numeric",
+  });
 
-  const [kundenName, setKundenName] = useState("");
-  const [kundenTelefon, setKundenTelefon] = useState("");
-  const [kundenEmail, setKundenEmail] = useState("");
-  const [kundenAdresse, setKundenAdresse] = useState("");
-  const [customerId, setCustomerId] = useState<string | null>(null);
-  const [problem, setProblem] = useState("");
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (searchQuery.length < 2) { setSearchResults([]); setShowDropdown(false); return; }
-    const timeout = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(searchQuery)}`);
-        const data = await res.json();
-        setSearchResults(data.customers ?? []);
-        setShowDropdown(true);
-      } catch { setSearchResults([]); }
-      finally { setSearching(false); }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
-
-  function selectCustomer(c: CustomerResult) {
-    setSelectedCustomer(c);
-    setCustomerId(c.id);
-    const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
-    setKundenName(name);
-    setKundenTelefon(c.phone ?? "");
-    setKundenEmail(c.email ?? "");
-    setKundenAdresse(c.address ?? "");
-    setSearchQuery(name);
-    setShowDropdown(false);
-  }
-
-  function clearCustomer() {
-    setSelectedCustomer(null);
-    setCustomerId(null);
-    setSearchQuery("");
-    setKundenName("");
-    setKundenTelefon("");
-    setKundenEmail("");
-    setKundenAdresse("");
-  }
-
-  function addQuickProblem(text: string) {
-    setProblem((prev) => {
-      if (prev.includes(text)) return prev;
-      return prev ? `${prev}\n${text}` : text;
-    });
-    problemRef.current?.focus();
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const formData = new FormData(e.currentTarget);
-      formData.set("kunden_name", kundenName);
-      formData.set("kunden_telefon", kundenTelefon);
-      formData.set("kunden_email", kundenEmail);
-      formData.set("kunden_adresse", kundenAdresse);
-      formData.set("reparatur_problem", problem);
-      if (customerId) formData.set("customer_id", customerId);
-
-      const res = await fetch("/api/repairs/create", { method: "POST", body: formData });
-      const contentType = res.headers.get("content-type") || "";
-      const text = await res.text();
-      const result = contentType.includes("application/json") && text ? JSON.parse(text) : { ok: false, error: { message: text } };
-
-      if (res.ok && result.ok) { window.location.href = `/repairs/${result.id}`; return; }
-      alert(result?.error?.message || `Fehler (${res.status})`);
-    } catch (err: unknown) {
-      alert(`Fehler: ${err instanceof Error ? err.message : String(err)}`);
-    } finally { setLoading(false); }
-  }
+  const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ") || "Unbekannt";
 
   return (
-    <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-violet-600/8 blur-[140px]" />
-      </div>
+    <main className="min-h-screen bg-white">
+      <div className="max-w-[1000px] mx-auto px-5 py-7">
 
-      <div className="w-full space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
-              🪛 REPARATUR · ANNAHME
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Neuer Reparaturauftrag</h1>
-            <p className="mt-1 text-sm text-slate-500">Gerät annehmen, Kunde verknüpfen und Auftrag anlegen.</p>
-          </div>
-          <Link href="/repairs" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8">
-            Abbrechen
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 mb-5 text-[11.5px] text-gray-400">
+          <Link href="/customers" className="hover:text-gray-700 transition-colors">
+            Kunden
           </Link>
+          <span className="text-gray-200">/</span>
+          <span className="text-gray-600">{fullName}</span>
+        </nav>
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <span className="text-[15px] font-semibold text-gray-500">
+                {fullName.slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <h1 className="text-[20px] font-semibold text-black tracking-tight">
+                {fullName}
+              </h1>
+              <p className="text-[11.5px] text-gray-400 mt-0.5">
+                {customer.customer_code} · Kunde seit {createdDate}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/repairs/new?customer_id=${customer.id}&name=${encodeURIComponent(fullName)}`}
+              className="h-8 px-3.5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors flex items-center gap-1.5"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <line x1="5" y1="1" x2="5" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="1" y1="5" x2="9" y2="5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              Neue Reparatur
+            </Link>
+            <Link
+              href={`/customers/${params.id}/edit`}
+              className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+            >
+              Bearbeiten
+            </Link>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
-          <div className="space-y-5">
+        {/* Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-            {/* Kunde */}
-            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-1">Kunde</h2>
-              <p className="text-sm text-slate-500 mb-5">Bestehenden Kunden suchen oder neu eingeben</p>
+          {/* Links: Kontaktdaten */}
+          <div className="space-y-4">
 
-              <div ref={searchRef} className="relative mb-5">
-                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">🔍 Kunde suchen</label>
-                {selectedCustomer ? (
-                  <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                    <div>
-                      <div className="text-sm font-medium text-emerald-300">
-                        ✓ {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}
-                      </div>
-                      <div className="text-xs text-emerald-400/60 mt-0.5">
-                        {selectedCustomer.customer_code} · {selectedCustomer.phone ?? "Kein Tel."}
-                      </div>
-                    </div>
-                    <button type="button" onClick={clearCustomer}
-                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:text-white">
-                      Ändern
-                    </button>
+            {/* Kontakt */}
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
+                  Kontakt
+                </span>
+              </div>
+              <div className="bg-white divide-y divide-gray-50">
+                {customer.phone && (
+                  <div className="flex items-center px-4 py-2.5 gap-3">
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="text-gray-300 shrink-0">
+                      <path d="M2 2h3l1.5 3-1.5 1s1 2 4 4l1-1.5 3 1.5v3s-6 1-11-8 0-3 0-3z"
+                        stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <a href={`tel:${customer.phone}`}
+                      className="text-[12.5px] text-gray-700 hover:text-black transition-colors">
+                      {customer.phone}
+                    </a>
                   </div>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                      placeholder="Name, Telefon oder E-Mail..."
-                      className={inputClass}
-                    />
-                    {showDropdown && (
-                      <div className="absolute z-50 mt-2 w-full rounded-2xl border border-white/10 bg-[#181c24] shadow-2xl overflow-hidden">
-                        {searching ? (
-                          <div className="px-4 py-3 text-sm text-slate-500">Suche...</div>
-                        ) : searchResults.length === 0 ? (
-                          <div className="px-4 py-3 text-sm text-slate-600">Kein Kunde gefunden – manuell eingeben</div>
-                        ) : (
-                          searchResults.map((c) => (
-                            <button key={c.id} type="button" onClick={() => selectCustomer(c)}
-                              className="w-full px-4 py-3 text-left transition hover:bg-white/5 border-b border-white/5 last:border-0">
-                              <div className="text-sm font-medium text-white">
-                                {[c.first_name, c.last_name].filter(Boolean).join(" ") || "Unbenannt"}
-                              </div>
-                              <div className="text-xs text-slate-500 mt-0.5">{c.phone ?? "—"} · {c.email ?? "—"}</div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </>
+                )}
+                {customer.email && (
+                  <div className="flex items-center px-4 py-2.5 gap-3">
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="text-gray-300 shrink-0">
+                      <rect x="1" y="3" width="12" height="8" rx="1.5"
+                        stroke="currentColor" strokeWidth="1.2" />
+                      <path d="M1 4l6 4 6-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                    </svg>
+                    <a href={`mailto:${customer.email}`}
+                      className="text-[12.5px] text-gray-700 hover:text-black transition-colors truncate">
+                      {customer.email}
+                    </a>
+                  </div>
+                )}
+                {customer.address && (
+                  <div className="flex items-start px-4 py-2.5 gap-3">
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="text-gray-300 shrink-0 mt-0.5">
+                      <path d="M7 1C4.8 1 3 2.8 3 5c0 3 4 8 4 8s4-5 4-8c0-2.2-1.8-4-4-4z"
+                        stroke="currentColor" strokeWidth="1.2" />
+                      <circle cx="7" cy="5" r="1.2" stroke="currentColor" strokeWidth="1.2" />
+                    </svg>
+                    <span className="text-[12.5px] text-gray-700 leading-relaxed">
+                      {customer.address}
+                    </span>
+                  </div>
+                )}
+                {!customer.phone && !customer.email && !customer.address && (
+                  <p className="px-4 py-3 text-[11.5px] text-gray-300">
+                    Keine Kontaktdaten hinterlegt.
+                  </p>
                 )}
               </div>
+            </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <InputField label="Name / Firma" required>
-                  <input value={kundenName} onChange={(e) => setKundenName(e.target.value)} required placeholder="Max Mustermann" className={inputClass} />
-                </InputField>
-                <InputField label="Telefon">
-                  <input value={kundenTelefon} onChange={(e) => setKundenTelefon(e.target.value)} placeholder="+49 ..." className={inputClass} />
-                </InputField>
-                <InputField label="E-Mail">
-                  <input type="email" value={kundenEmail} onChange={(e) => setKundenEmail(e.target.value)} placeholder="email@beispiel.de" className={inputClass} />
-                </InputField>
-                <InputField label="Adresse">
-                  <input value={kundenAdresse} onChange={(e) => setKundenAdresse(e.target.value)} placeholder="Straße, PLZ Stadt" className={inputClass} />
-                </InputField>
-              </div>
-            </section>
-
-            {/* Gerät */}
-            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-1">Gerät</h2>
-              <p className="text-sm text-slate-500 mb-5">Geräteinformationen für die Werkstatt</p>
-              <div className="grid gap-4 md:grid-cols-2">
-                <InputField label="Gerätetyp">
-                  <select name="geraetetyp" defaultValue="" className={inputClass + " cursor-pointer"}>
-                    <option value="">Bitte wählen</option>
-                    {DEVICE_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </InputField>
-                <InputField label="Hersteller">
-                  <input name="hersteller" placeholder="Apple, Samsung..." className={inputClass} />
-                </InputField>
-                <InputField label="Modell">
-                  <input name="modell" placeholder="iPhone 15, Galaxy S24..." className={inputClass} />
-                </InputField>
-                <InputField label="IMEI / Seriennummer">
-                  <input name="imei" placeholder="123456789012345" className={inputClass} />
-                </InputField>
-                <InputField label="Gerätecode / Muster">
-                  <input name="geraete_code" placeholder="PIN oder Muster" className={inputClass} />
-                </InputField>
-              </div>
-            </section>
-
-            {/* Problem mit Quick-Buttons */}
-            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-1">Reparatur</h2>
-              <p className="text-sm text-slate-500 mb-4">Fehlerbild und wichtige Hinweise</p>
-
-              {/* Quick Buttons */}
-              <div className="mb-3">
-                <div className="text-xs uppercase tracking-wide text-slate-600 mb-2">Schnellauswahl</div>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_PROBLEMS.map((q) => (
-                    <button
-                      key={q.label}
-                      type="button"
-                      onClick={() => addQuickProblem(q.text)}
-                      className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
-                        problem.includes(q.text)
-                          ? "border-violet-500/40 bg-violet-500/15 text-violet-300"
-                          : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20"
-                      }`}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
+            {/* Notizen */}
+            {customer.notes && (
+              <div className="rounded-xl border border-gray-100 overflow-hidden">
+                <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                  <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
+                    Notizen
+                  </span>
+                </div>
+                <div className="bg-white px-4 py-3">
+                  <p className="text-[12.5px] text-gray-600 leading-relaxed whitespace-pre-wrap">
+                    {customer.notes}
+                  </p>
                 </div>
               </div>
+            )}
 
-              <InputField label="Problem / Fehlerbeschreibung" required>
-                <textarea
-                  ref={problemRef}
-                  name="reparatur_problem"
-                  value={problem}
-                  onChange={(e) => setProblem(e.target.value)}
-                  rows={5}
-                  required
-                  placeholder="z. B. Display gebrochen, lädt nicht, Wasserschaden ..."
-                  className={inputClass + " resize-none"}
-                />
-              </InputField>
-            </section>
-          </div>
-
-          {/* Rechte Spalte */}
-          <div className="space-y-5">
-            <section className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5">
-              <h2 className="text-base font-semibold text-white mb-4">Werkstatt-Info</h2>
-              <div className="space-y-3">
-                {[
-                  { label: "Startstatus", value: "Angenommen" },
-                  { label: "Nach dem Speichern", value: "Direkt in den Auftrag" },
-                  { label: "Journal", value: "Danach ergänzbar" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-white/6 bg-white/3 px-4 py-3">
-                    <div className="text-xs uppercase tracking-wide text-slate-600">{item.label}</div>
-                    <div className="mt-1 text-sm font-medium text-slate-300">{item.value}</div>
-                  </div>
-                ))}
+            {/* KPI */}
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
+                  Übersicht
+                </span>
               </div>
-            </section>
-
-            <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-5 xl:sticky xl:top-24">
-              <div className="mb-4">
-                <div className="text-base font-semibold text-white">Auftrag anlegen</div>
-                <div className="mt-1 text-sm text-slate-500">
-                  {selectedCustomer
-                    ? `✓ ${[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}`
-                    : "Neuer Kunde wird angelegt"}
+              <div className="bg-white divide-y divide-gray-50">
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-[11.5px] text-gray-400">Reparaturen</span>
+                  <span className="text-[13px] font-semibold text-black">{repairList.length}</span>
                 </div>
-              </div>
-              <div className="space-y-3">
-                <button
-                  disabled={loading}
-                  type="submit"
-                  className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90 disabled:opacity-50"
-                >
-                  {loading ? "Speichert..." : "Auftrag speichern"}
-                </button>
-                <Link
-                  href="/repairs"
-                  className="block w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-400 transition hover:text-white hover:bg-white/8"
-                >
-                  Zurück zur Übersicht
-                </Link>
+                <div className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-[11.5px] text-gray-400">Offen</span>
+                  <span className="text-[13px] font-semibold text-black">
+                    {repairList.filter(r => !["abgeschlossen", "storniert", "abgeholt"].includes(r.status)).length}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </form>
+
+          {/* Rechts: Reparaturen */}
+          <div className="md:col-span-2">
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
+                  Reparaturen ({repairList.length})
+                </span>
+                <Link
+                  href={`/repairs/new?customer_id=${customer.id}`}
+                  className="text-[11px] text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  + Neue Reparatur
+                </Link>
+              </div>
+
+              {repairList.length === 0 ? (
+                <div className="bg-white flex flex-col items-center justify-center py-12 gap-1.5">
+                  <p className="text-[13px] font-medium text-gray-900">Noch keine Reparaturen</p>
+                  <p className="text-[12px] text-gray-400">Erste Reparatur für diesen Kunden anlegen</p>
+                </div>
+              ) : (
+                <div className="bg-white divide-y divide-gray-50">
+                  {repairList.map((repair) => (
+                    <Link
+                      key={repair.id}
+                      href={`/repairs/${repair.id}`}
+                      className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50/80 transition-colors group"
+                    >
+                      {/* Auftragsnummer */}
+                      <span className="font-mono text-[11px] text-gray-400 w-[130px] shrink-0">
+                        {repair.auftragsnummer}
+                      </span>
+
+                      {/* Gerät + Problem */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12.5px] font-medium text-gray-900 leading-tight">
+                          {repair.hersteller} {repair.modell}
+                        </p>
+                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                          {repair.reparatur_problem || "—"}
+                        </p>
+                      </div>
+
+                      {/* Status */}
+                      <div className="shrink-0">
+                        <StatusPill status={repair.status as RepairStatus} />
+                      </div>
+
+                      {/* Datum */}
+                      <span className="text-[11px] text-gray-300 shrink-0 hidden sm:block">
+                        {new Date(repair.annahme_datum).toLocaleDateString("de-DE", {
+                          day: "2-digit", month: "2-digit", year: "2-digit",
+                        })}
+                      </span>
+
+                      {/* Arrow */}
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+                        className="text-gray-200 group-hover:text-gray-400 transition-colors shrink-0">
+                        <polyline points="4,2 8,6 4,10" stroke="currentColor"
+                          strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );

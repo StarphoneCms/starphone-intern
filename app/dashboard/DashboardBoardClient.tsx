@@ -11,7 +11,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 export type DashboardStatus =
   | "Angenommen" | "In Diagnose" | "Rückfrage Kunde"
-  | "Ersatzteil bestellt" | "In Reparatur" | "Abholbereit" | "Abgeschlossen";
+  | "Ersatzteil bestellt" | "In Reparatur" | "Abholbereit"
+  | "Abgeschlossen" | "Storniert";
 
 export type DashboardRepair = {
   id: string;
@@ -32,7 +33,6 @@ export const STATUS_COLUMNS: DashboardStatus[] = [
   "Ersatzteil bestellt", "In Reparatur", "Abholbereit", "Abgeschlossen",
 ];
 
-// ─── DB-Werte Mapping ──────────────────────────────────────────────────────────
 const STATUS_VALUE_MAP: Record<DashboardStatus, string> = {
   "Angenommen":          "angenommen",
   "In Diagnose":         "in_diagnose",
@@ -41,160 +41,133 @@ const STATUS_VALUE_MAP: Record<DashboardStatus, string> = {
   "In Reparatur":        "in_reparatur",
   "Abholbereit":         "abholbereit",
   "Abgeschlossen":       "abgeschlossen",
+  "Storniert":           "storniert",
+};
+
+const STATUS_STRIPE: Record<DashboardStatus, string> = {
+  "Angenommen":          "#FBBF24",
+  "In Diagnose":         "#3B82F6",
+  "Rückfrage Kunde":     "#EF4444",
+  "Ersatzteil bestellt": "#8B5CF6",
+  "In Reparatur":        "#6366F1",
+  "Abholbereit":         "#10B981",
+  "Abgeschlossen":       "#9CA3AF",
+  "Storniert":           "#D1D5DB",
 };
 
 const STATUS_CONFIG: Record<DashboardStatus, {
-  dot: string; badge: string; col: string; colHover: string
+  dot: string; pill: string; colBg: string; colBorder: string; colDrop: string;
 }> = {
-  "Angenommen":          { dot: "bg-amber-400",    badge: "border-amber-500/30    bg-amber-500/10    text-amber-300",    col: "border-amber-500/15    bg-amber-500/5",    colHover: "ring-amber-500/30" },
-  "In Diagnose":         { dot: "bg-orange-400",   badge: "border-orange-500/30   bg-orange-500/10   text-orange-300",   col: "border-orange-500/15   bg-orange-500/5",   colHover: "ring-orange-500/30" },
-  "Rückfrage Kunde":     { dot: "bg-rose-400",     badge: "border-rose-500/30     bg-rose-500/10     text-rose-300",     col: "border-rose-500/15     bg-rose-500/5",     colHover: "ring-rose-500/30" },
-  "Ersatzteil bestellt": { dot: "bg-fuchsia-400",  badge: "border-fuchsia-500/30  bg-fuchsia-500/10  text-fuchsia-300",  col: "border-fuchsia-500/15  bg-fuchsia-500/5",  colHover: "ring-fuchsia-500/30" },
-  "In Reparatur":        { dot: "bg-violet-400",   badge: "border-violet-500/30   bg-violet-500/10   text-violet-300",   col: "border-violet-500/15   bg-violet-500/5",   colHover: "ring-violet-500/30" },
-  "Abholbereit":         { dot: "bg-emerald-400",  badge: "border-emerald-500/30  bg-emerald-500/10  text-emerald-300",  col: "border-emerald-500/15  bg-emerald-500/5",  colHover: "ring-emerald-500/30" },
-  "Abgeschlossen":       { dot: "bg-slate-400",    badge: "border-slate-500/30    bg-slate-500/10    text-slate-400",    col: "border-slate-500/15    bg-slate-500/5",    colHover: "ring-slate-500/30" },
+  "Angenommen":          { dot: "bg-amber-400",   pill: "bg-amber-50   text-amber-800   border-amber-200",   colBg: "bg-amber-50/50",   colBorder: "border-amber-200",   colDrop: "ring-amber-300" },
+  "In Diagnose":         { dot: "bg-blue-500",    pill: "bg-blue-50    text-blue-800    border-blue-200",    colBg: "bg-blue-50/50",    colBorder: "border-blue-200",    colDrop: "ring-blue-300" },
+  "Rückfrage Kunde":     { dot: "bg-red-500",     pill: "bg-red-50     text-red-800     border-red-200",     colBg: "bg-red-50/50",     colBorder: "border-red-200",     colDrop: "ring-red-300" },
+  "Ersatzteil bestellt": { dot: "bg-violet-500",  pill: "bg-violet-50  text-violet-800  border-violet-200",  colBg: "bg-violet-50/50",  colBorder: "border-violet-200",  colDrop: "ring-violet-300" },
+  "In Reparatur":        { dot: "bg-indigo-500",  pill: "bg-indigo-50  text-indigo-800  border-indigo-200",  colBg: "bg-indigo-50/50",  colBorder: "border-indigo-200",  colDrop: "ring-indigo-300" },
+  "Abholbereit":         { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-800 border-emerald-200", colBg: "bg-emerald-50/50", colBorder: "border-emerald-200", colDrop: "ring-emerald-300" },
+  "Abgeschlossen":       { dot: "bg-gray-400",    pill: "bg-gray-100   text-gray-600    border-gray-200",    colBg: "bg-gray-50",       colBorder: "border-gray-200",    colDrop: "ring-gray-300" },
+  "Storniert":           { dot: "bg-gray-300",    pill: "bg-gray-100   text-gray-500    border-gray-200",    colBg: "bg-gray-50",       colBorder: "border-gray-200",    colDrop: "ring-gray-300" },
 };
 
-function formatRelativeAge(from: string | null) {
+function formatAge(from: string | null): string {
   if (!from) return "—";
-  const diffMs = Date.now() - new Date(from).getTime();
-  const hours = Math.floor(diffMs / 3600000);
-  const days = Math.floor(diffMs / 86400000);
-  if (hours < 1) return "gerade eben";
-  if (hours < 24) return `${hours}h`;
-  if (days === 1) return "1 Tag";
-  return `${days} Tage`;
+  const ms = Date.now() - new Date(from).getTime();
+  const h = Math.floor(ms / 3600000);
+  const d = Math.floor(ms / 86400000);
+  if (h < 1) return "gerade";
+  if (h < 24) return `${h}h`;
+  if (d === 1) return "1 Tag";
+  return `${d} Tage`;
 }
 
-function getRepairHealth(repair: DashboardRepair) {
-  const updatedDays = repair.updated_at
-    ? Math.floor((Date.now() - new Date(repair.updated_at).getTime()) / 86400000)
-    : null;
-  const createdDays = repair.annahme_datum
-    ? Math.floor((Date.now() - new Date(repair.annahme_datum).getTime()) / 86400000)
-    : null;
-
-  if (repair.boardStatus === "Rückfrage Kunde" && updatedDays != null && updatedDays >= 3)
-    return { color: "text-rose-400",   text: `⚠ ${updatedDays}d ohne Reaktion` };
-  if (repair.boardStatus === "Ersatzteil bestellt" && updatedDays != null && updatedDays >= 4)
-    return { color: "text-amber-400",  text: `📦 ${updatedDays}d unverändert` };
-  if (["Angenommen","In Diagnose","In Reparatur"].includes(repair.boardStatus) && createdDays != null && createdDays >= 5)
-    return { color: "text-orange-400", text: `⏳ ${createdDays}d offen` };
-  if (repair.boardStatus === "Abholbereit" && updatedDays != null && updatedDays >= 3)
-    return { color: "text-emerald-400",text: `✅ ${updatedDays}d abholbereit` };
+function getHealth(r: DashboardRepair): { text: string; cls: string } | null {
+  const ud = r.updated_at ? Math.floor((Date.now() - new Date(r.updated_at).getTime()) / 86400000) : null;
+  const cd = r.annahme_datum ? Math.floor((Date.now() - new Date(r.annahme_datum).getTime()) / 86400000) : null;
+  if (r.boardStatus === "Rückfrage Kunde" && ud != null && ud >= 3)
+    return { text: `${ud}d ohne Reaktion`, cls: "text-red-700 bg-red-50 border-red-200" };
+  if (r.boardStatus === "Ersatzteil bestellt" && ud != null && ud >= 4)
+    return { text: `${ud}d unverändert`, cls: "text-amber-700 bg-amber-50 border-amber-200" };
+  if (["Angenommen","In Diagnose","In Reparatur"].includes(r.boardStatus) && cd != null && cd >= 5)
+    return { text: `${cd}d offen`, cls: "text-orange-700 bg-orange-50 border-orange-200" };
+  if (r.boardStatus === "Abholbereit" && ud != null && ud >= 3)
+    return { text: `${ud}d wartet`, cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
   return null;
 }
 
-// ─── Repair Card ───────────────────────────────────────────────────────────────
-
 function RepairCard({ repair, saving, overlay = false, onStatusChange }: {
-  repair: DashboardRepair;
-  saving: boolean;
-  overlay?: boolean;
-  onStatusChange?: (repairId: string, nextStatus: DashboardStatus) => void;
+  repair: DashboardRepair; saving: boolean; overlay?: boolean;
+  onStatusChange?: (id: string, next: DashboardStatus) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: repair.id,
-    data: { type: "repair", repairId: repair.id, status: repair.boardStatus },
-    disabled: overlay,
+    id: repair.id, disabled: overlay,
   });
-
-  const style = overlay ? undefined : {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.35 : 1,
-  };
-
-  const health = getRepairHealth(repair);
+  const style = overlay ? undefined : { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 };
   const cfg = STATUS_CONFIG[repair.boardStatus];
+  const health = getHealth(repair);
 
   return (
-    <div
-      ref={overlay ? undefined : setNodeRef}
-      style={style}
-      className={`group rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-4 transition-all
-        hover:border-white/15 hover:bg-white/6
-        ${overlay ? "shadow-2xl shadow-black/60 ring-1 ring-violet-500/40 scale-[1.02]" : ""}
-        ${isDragging ? "" : ""}`}
-    >
-      <div className="space-y-3">
-
-        {/* Header: Gerät + Drag Handle */}
+    <div ref={overlay ? undefined : setNodeRef} style={style}
+      className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-all
+        ${overlay ? "shadow-2xl ring-1 ring-gray-300 scale-[1.02]" : "shadow-sm hover:shadow-md"}
+      `}>
+      {/* Farbstreifen */}
+      <div className="h-[3px]" style={{ backgroundColor: STATUS_STRIPE[repair.boardStatus] }} />
+      <div className="p-3 space-y-2">
+        {/* Header */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-white truncate">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-gray-900 truncate">
               {repair.hersteller || "Gerät"} {repair.modell || ""}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">{repair.geraetetyp || "Reparatur"}</div>
+            <div className="text-[11px] text-gray-400 mt-0.5">{repair.geraetetyp || "Smartphone"}</div>
           </div>
-          <button
-            type="button"
-            {...(overlay ? {} : listeners)}
-            {...(overlay ? {} : attributes)}
-            className="cursor-grab rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-500 hover:text-slate-300 active:cursor-grabbing transition shrink-0"
-            title="Ziehen zum Verschieben"
-          >
+          <button type="button" {...(overlay ? {} : listeners)} {...(overlay ? {} : attributes)}
+            className="cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing shrink-0 select-none text-base">
             ⠿
           </button>
         </div>
-
-        {/* Kunde & Auftragsnummer */}
+        {/* Kunde + Nr */}
         <div>
-          <div className="text-sm text-slate-200 font-medium">{repair.kunden_name || "Unbekannt"}</div>
-          <div className="text-xs text-slate-600 mt-0.5 font-mono">
-            {repair.auftragsnummer || repair.id.slice(0, 8)}
-          </div>
+          <div className="text-sm font-medium text-gray-800">{repair.kunden_name || "Unbekannt"}</div>
+          <div className="text-[11px] font-mono text-gray-400 mt-0.5">{repair.auftragsnummer || repair.id.slice(0, 8)}</div>
         </div>
-
-        {/* Zeitstempel + Health */}
-        <div className="flex gap-1.5 flex-wrap">
-          <span className="rounded-lg border border-white/8 bg-white/4 px-2 py-1 text-[10px] text-slate-500">
-            📥 {formatRelativeAge(repair.annahme_datum)}
-          </span>
-          <span className="rounded-lg border border-white/8 bg-white/4 px-2 py-1 text-[10px] text-slate-500">
-            🔄 {formatRelativeAge(repair.updated_at)}
-          </span>
-          {health && (
-            <span className={`text-[10px] font-semibold ${health.color}`}>
-              {health.text}
-            </span>
-          )}
-        </div>
-
-        {/* Problem Preview */}
-        {repair.reparatur_problem && (
-          <div className="rounded-xl border border-white/6 bg-white/3 px-3 py-2 text-xs text-slate-400 line-clamp-2">
-            {repair.reparatur_problem}
+        {/* Status Pill */}
+        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.pill}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+          {repair.boardStatus}
+        </span>
+        {/* Health */}
+        {health && (
+          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-medium ${health.cls}`}>
+            ⚠ {health.text}
           </div>
         )}
-
-        {/* Status Dropdown – mit lesbaren Labels, sendet DB-Wert */}
+        {/* Problem */}
+        {repair.reparatur_problem && (
+          <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{repair.reparatur_problem}</p>
+        )}
+        {/* Zeit */}
+        <div className="text-[10px] text-gray-400">
+          {formatAge(repair.annahme_datum)} · Update {formatAge(repair.updated_at)}
+        </div>
+        {/* Dropdown */}
         {onStatusChange && (
-          <select
-            value={repair.boardStatus}
+          <select value={repair.boardStatus}
             onChange={(e) => onStatusChange(repair.id, e.target.value as DashboardStatus)}
-            disabled={saving}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300 outline-none focus:border-violet-500/40 transition disabled:opacity-50 cursor-pointer"
-          >
-            {STATUS_COLUMNS.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            disabled={saving} onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700 outline-none focus:border-gray-400 transition disabled:opacity-50 cursor-pointer">
+            {STATUS_COLUMNS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
-
         {/* Footer */}
-        <div className="flex items-center justify-between pt-1">
-          <Link
-            href={`/repairs/${repair.id}`}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400 transition hover:border-violet-500/30 hover:text-violet-300"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="flex items-center justify-between">
+          <Link href={`/repairs/${repair.id}`} onClick={(e) => e.stopPropagation()}
+            className="text-xs font-medium text-gray-400 hover:text-gray-900 transition-colors">
             Öffnen →
           </Link>
           {saving && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full border border-violet-400 border-t-transparent animate-spin" />
-              <span className="text-[10px] text-violet-400">Speichert…</span>
+            <div className="flex items-center gap-1">
+              <div className="w-2.5 h-2.5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+              <span className="text-[10px] text-gray-400">Speichert…</span>
             </div>
           )}
         </div>
@@ -203,57 +176,37 @@ function RepairCard({ repair, saving, overlay = false, onStatusChange }: {
   );
 }
 
-// ─── Board Column ──────────────────────────────────────────────────────────────
-
 function BoardColumn({ status, items, savingId, onStatusChange }: {
-  status: DashboardStatus;
-  items: DashboardRepair[];
-  savingId: string | null;
-  onStatusChange: (repairId: string, nextStatus: DashboardStatus) => void;
+  status: DashboardStatus; items: DashboardRepair[]; savingId: string | null;
+  onStatusChange: (id: string, next: DashboardStatus) => void;
 }) {
   const cfg = STATUS_CONFIG[status];
-  const { setNodeRef, isOver } = useDroppable({ id: status, data: { type: "column", status } });
+  const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
-    <section
-      ref={setNodeRef}
-      className={`w-[290px] shrink-0 rounded-2xl border ${cfg.col} backdrop-blur-sm p-3 transition-all ${
-        isOver ? `ring-2 ${cfg.colHover} border-transparent` : ""
-      }`}
-    >
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between px-1">
+    <section ref={setNodeRef}
+      className={`w-[265px] shrink-0 rounded-2xl border transition-all ${cfg.colBg} ${cfg.colBorder} ${isOver ? `ring-2 ${cfg.colDrop}` : ""}`}>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-inherit">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${cfg.dot} ${isOver ? "animate-pulse" : ""}`} />
-          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cfg.badge}`}>
-            {status}
-          </span>
+          <span className="text-xs font-semibold text-gray-700">{status}</span>
         </div>
-        <span className="text-xs text-slate-600 font-mono tabular-nums">{items.length}</span>
+        <span className="text-xs font-medium text-gray-400 tabular-nums">{items.length}</span>
       </div>
-
-      {/* Cards */}
-      <div className="space-y-2.5 min-h-[80px]">
+      <div className="p-2 space-y-2 min-h-[80px]">
         {items.length === 0 ? (
-          <div className={`rounded-xl border border-dashed border-white/8 p-5 text-center text-xs text-slate-600 transition-all ${isOver ? "border-white/20 bg-white/3" : ""}`}>
+          <div className={`rounded-xl border-2 border-dashed p-5 text-center text-xs transition-all ${isOver ? "border-gray-400 text-gray-500 bg-white/60" : "border-gray-200 text-gray-300"}`}>
             {isOver ? "Hier ablegen" : "Leer"}
           </div>
         ) : (
-          items.map((repair) => (
-            <RepairCard
-              key={repair.id}
-              repair={repair}
-              saving={savingId === repair.id}
-              onStatusChange={onStatusChange}
-            />
+          items.map((r) => (
+            <RepairCard key={r.id} repair={r} saving={savingId === r.id} onStatusChange={onStatusChange} />
           ))
         )}
       </div>
     </section>
   );
 }
-
-// ─── Main Board ────────────────────────────────────────────────────────────────
 
 export default function DashboardBoardClient({ initialItems }: { initialItems: DashboardRepair[] }) {
   const [items, setItems] = useState<DashboardRepair[]>(initialItems ?? []);
@@ -262,99 +215,56 @@ export default function DashboardBoardClient({ initialItems }: { initialItems: D
   const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
-  const grouped = useMemo(() =>
-    STATUS_COLUMNS.map((status) => ({
-      status,
-      items: items.filter((item) => item.boardStatus === status),
-    })), [items]);
-
-  const activeRepair = useMemo(() =>
-    items.find((item) => item.id === activeId) ?? null, [items, activeId]);
+  const grouped = useMemo(() => STATUS_COLUMNS.map((s) => ({ status: s, items: items.filter((i) => i.boardStatus === s) })), [items]);
+  const activeRepair = useMemo(() => items.find((i) => i.id === activeId) ?? null, [items, activeId]);
 
   async function updateStatus(repairId: string, nextStatus: DashboardStatus) {
-    const current = items.find((item) => item.id === repairId);
+    const current = items.find((i) => i.id === repairId);
     if (!current || current.boardStatus === nextStatus) return;
-
     const dbValue = STATUS_VALUE_MAP[nextStatus];
-    const previousItems = [...items];
+    const prev = [...items];
     setError(null);
-
-    // Optimistisches Update
-    setItems((prev) => prev.map((item) =>
-      item.id === repairId
-        ? { ...item, status: dbValue, boardStatus: nextStatus, updated_at: new Date().toISOString() }
-        : item
-    ));
+    setItems((p) => p.map((i) => i.id === repairId ? { ...i, status: dbValue, boardStatus: nextStatus, updated_at: new Date().toISOString() } : i));
     setSavingId(repairId);
-
     try {
       const res = await fetch(`/api/repairs/${repairId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: dbValue }),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error?.message ?? `Fehler ${res.status}`);
-      }
-      // Bestätigtes Update vom Server
-      setItems((prev) => prev.map((item) =>
-        item.id === repairId
-          ? { ...item, ...(json.data ?? {}), boardStatus: nextStatus }
-          : item
-      ));
+      if (!res.ok || !json?.ok) throw new Error(json?.error?.message ?? `Fehler ${res.status}`);
+      setItems((p) => p.map((i) => i.id === repairId ? { ...i, ...(json.data ?? {}), boardStatus: nextStatus } : i));
     } catch (e: unknown) {
-      // Rollback
-      setItems(previousItems);
-      setError(e instanceof Error ? e.message : "Status konnte nicht gespeichert werden.");
-    } finally {
-      setSavingId(null);
-    }
+      setItems(prev);
+      setError(e instanceof Error ? e.message : "Fehler beim Speichern.");
+    } finally { setSavingId(null); }
   }
 
   return (
     <div className="space-y-3">
-      {/* Fehler Banner */}
       {error && (
-        <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400">
-          <span>⚠️ {error}</span>
-          <button onClick={() => setError(null)} className="ml-4 opacity-60 hover:opacity-100 transition text-lg leading-none">×</button>
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 text-xl leading-none">×</button>
         </div>
       )}
-
-      <DndContext
-        id="starphone-repair-board"
-        sensors={sensors}
+      <DndContext id="starphone-board" sensors={sensors}
         onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
         onDragEnd={async (e: DragEndEvent) => {
           setActiveId(null);
-          const overId = e.over?.id;
-          if (!overId) return;
-          const nextStatus = STATUS_COLUMNS.find((s) => s === overId);
-          if (nextStatus) await updateStatus(String(e.active.id), nextStatus);
+          const next = STATUS_COLUMNS.find((s) => s === e.over?.id);
+          if (next) await updateStatus(String(e.active.id), next);
         }}
       >
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-3 min-w-max">
             {grouped.map((col) => (
-              <BoardColumn
-                key={col.status}
-                status={col.status}
-                items={col.items}
-                savingId={savingId}
-                onStatusChange={updateStatus}
-              />
+              <BoardColumn key={col.status} status={col.status} items={col.items} savingId={savingId} onStatusChange={updateStatus} />
             ))}
           </div>
         </div>
-
-        <DragOverlay dropAnimation={{ duration: 150, easing: "ease" }}>
-          {activeRepair && (
-            <div className="w-[290px]">
-              <RepairCard repair={activeRepair} saving={false} overlay />
-            </div>
-          )}
+        <DragOverlay dropAnimation={{ duration: 120, easing: "ease" }}>
+          {activeRepair && <div className="w-[265px]"><RepairCard repair={activeRepair} saving={false} overlay /></div>}
         </DragOverlay>
       </DndContext>
     </div>
