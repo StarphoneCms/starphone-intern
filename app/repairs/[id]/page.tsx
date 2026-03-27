@@ -1,13 +1,15 @@
+"use server";
+
 // Pfad: src/app/repairs/[id]/page.tsx
-// SERVER COMPONENT – lädt Daten serverseitig
 
 import { createServerComponentClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { StatusPill, STATUS_CONFIG, STATUS_FLOW, RepairStatus } from "@/lib/repair-types";
 import { StatusChanger } from "./StatusChanger";
+import { EditRepairPanel } from "./EditRepairPanel";
 
-// ─── Sub-components (Server) ──────────────────────────────────────────────────
+// ─── SectionCard ──────────────────────────────────────────────────────────────
 
 function SectionCard({
   title,
@@ -31,7 +33,17 @@ function SectionCard({
   );
 }
 
-function DataRow({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
+// ─── DataRow ──────────────────────────────────────────────────────────────────
+
+function DataRow({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+}) {
   if (!value) return null;
   return (
     <div className="flex items-start px-4 py-2.5 border-b border-gray-50 last:border-0">
@@ -42,6 +54,8 @@ function DataRow({ label, value, mono }: { label: string; value?: string | null;
     </div>
   );
 }
+
+// ─── StatusTimeline ───────────────────────────────────────────────────────────
 
 function StatusTimeline({ current }: { current: RepairStatus }) {
   const idx    = STATUS_FLOW.indexOf(current);
@@ -89,22 +103,26 @@ function StatusTimeline({ current }: { current: RepairStatus }) {
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function RepairDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  // Next.js 15: params ist ein Promise
+  const { id } = await params;
+
   const supabase = await createServerComponentClient();
 
   const { data: repair } = await supabase
     .from("repairs")
-    .select(
-      `*, customers(id, first_name, last_name, phone, email),
-       repair_notes(id, note, created_at, created_by, profiles(display_name))`
-    )
-    .eq("id", params.id)
+    .select(`
+      *,
+      customers(id, first_name, last_name, phone, email),
+      repair_notes(id, note, created_at, created_by, profiles(display_name))
+    `)
+    .eq("id", id)
     .single();
 
   if (!repair) notFound();
@@ -112,6 +130,7 @@ export default async function RepairDetailPage({
   const displayName = repair.customers
     ? `${repair.customers.first_name} ${repair.customers.last_name}`
     : repair.kunden_name;
+
   const phone = repair.customers?.phone ?? repair.kunden_telefon;
   const email = repair.customers?.email ?? repair.kunden_email;
 
@@ -130,7 +149,9 @@ export default async function RepairDetailPage({
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 mb-5 text-[11.5px] text-gray-400">
-          <Link href="/repairs" className="hover:text-gray-700 transition-colors">Reparaturen</Link>
+          <Link href="/repairs" className="hover:text-gray-700 transition-colors">
+            Reparaturen
+          </Link>
           <span className="text-gray-200">/</span>
           <span className="font-mono text-gray-600">{repair.auftragsnummer}</span>
         </nav>
@@ -150,7 +171,10 @@ export default async function RepairDetailPage({
               <span>{createdDate}</span>
               <span className="text-gray-200">·</span>
               {repair.customers?.id ? (
-                <Link href={`/customers/${repair.customers.id}`} className="hover:text-gray-700 transition-colors">
+                <Link
+                  href={`/customers/${repair.customers.id}`}
+                  className="hover:text-gray-700 transition-colors"
+                >
                   {displayName}
                 </Link>
               ) : (
@@ -159,24 +183,15 @@ export default async function RepairDetailPage({
             </div>
           </div>
 
+          {/* Aktions-Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* StatusChanger ist Client Component – nutzt fetch('/api/repairs/...') */}
-            <StatusChanger
-              id={repair.id}
-              current={repair.status}
-            />
-
-            <Link href={`/repairs/${params.id}/edit`}
-              className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                <path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" stroke="currentColor"
-                  strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Bearbeiten
-            </Link>
-
-            <Link href={`/labels?repair=${params.id}`} title="Etikett drucken"
-              className="h-8 w-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center justify-center">
+            <StatusChanger id={repair.id} current={repair.status} />
+            <EditRepairPanel repair={repair} />
+            <Link
+              href={`/labels?repair=${id}`}
+              title="Etikett drucken"
+              className="h-8 w-8 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center justify-center"
+            >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <rect x="2" y="3" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" />
                 <path d="M4 3V1.5H8V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -195,6 +210,7 @@ export default async function RepairDetailPage({
         {/* Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
+          {/* Links */}
           <div className="lg:col-span-2 space-y-4">
 
             <SectionCard title="Auftrag">
@@ -202,7 +218,9 @@ export default async function RepairDetailPage({
               <DataRow label="Interne Notiz" value={repair.internal_note} />
               <DataRow label="Gerätetyp"     value={repair.geraetetyp} />
               {!repair.reparatur_problem && !repair.internal_note && (
-                <p className="px-4 py-3 text-[11.5px] text-gray-300">Keine Details hinterlegt.</p>
+                <p className="px-4 py-3 text-[11.5px] text-gray-300">
+                  Keine Details hinterlegt.
+                </p>
               )}
             </SectionCard>
 
@@ -214,11 +232,12 @@ export default async function RepairDetailPage({
               <DataRow label="Gerätecode" value={repair.geraete_code} mono />
             </SectionCard>
 
-            {/* Verlauf */}
             <SectionCard title={`Verlauf (${sortedNotes.length})`}>
               <div className="divide-y divide-gray-50">
                 {sortedNotes.length === 0 && (
-                  <p className="px-4 py-3 text-[11.5px] text-gray-300">Noch kein Verlauf vorhanden.</p>
+                  <p className="px-4 py-3 text-[11.5px] text-gray-300">
+                    Noch kein Verlauf vorhanden.
+                  </p>
                 )}
                 {sortedNotes.map((note: {
                   id: string;
@@ -255,8 +274,10 @@ export default async function RepairDetailPage({
                             })}
                           </span>
                         </div>
-                        <p className={["text-[12.5px] leading-relaxed",
-                          isSystem ? "text-gray-400 italic" : "text-gray-800"].join(" ")}>
+                        <p className={[
+                          "text-[12.5px] leading-relaxed",
+                          isSystem ? "text-gray-400 italic" : "text-gray-800",
+                        ].join(" ")}>
                           {note.note}
                         </p>
                       </div>
@@ -274,8 +295,10 @@ export default async function RepairDetailPage({
               title="Kunde"
               action={
                 repair.customers?.id ? (
-                  <Link href={`/customers/${repair.customers.id}`}
-                    className="text-[11px] text-gray-400 hover:text-gray-700 transition-colors">
+                  <Link
+                    href={`/customers/${repair.customers.id}`}
+                    className="text-[11px] text-gray-400 hover:text-gray-700 transition-colors"
+                  >
                     Profil →
                   </Link>
                 ) : undefined
@@ -289,21 +312,31 @@ export default async function RepairDetailPage({
                     </span>
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium text-gray-900 leading-tight">{displayName}</p>
+                    <p className="text-[13px] font-medium text-gray-900 leading-tight">
+                      {displayName}
+                    </p>
                     {phone && (
-                      <a href={`tel:${phone}`} className="text-[11.5px] text-gray-400 hover:text-gray-700">
+                      <a
+                        href={`tel:${phone}`}
+                        className="text-[11.5px] text-gray-400 hover:text-gray-700"
+                      >
                         {phone}
                       </a>
                     )}
                   </div>
                 </div>
                 {email && (
-                  <a href={`mailto:${email}`} className="text-[11.5px] text-gray-400 hover:text-gray-700 block truncate">
+                  <a
+                    href={`mailto:${email}`}
+                    className="text-[11.5px] text-gray-400 hover:text-gray-700 block truncate"
+                  >
                     {email}
                   </a>
                 )}
                 {repair.kunden_adresse && (
-                  <p className="text-[11.5px] text-gray-400 mt-1.5">{repair.kunden_adresse}</p>
+                  <p className="text-[11.5px] text-gray-400 mt-1.5">
+                    {repair.kunden_adresse}
+                  </p>
                 )}
               </div>
             </SectionCard>
@@ -327,6 +360,7 @@ export default async function RepairDetailPage({
               )}
               <DataRow label="Auftragsnr." value={repair.auftragsnummer} mono />
             </SectionCard>
+
           </div>
         </div>
       </div>

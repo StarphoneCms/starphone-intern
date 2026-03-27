@@ -5,37 +5,36 @@ import { createServerComponentClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { StatusPill, RepairStatus } from "@/lib/repair-types";
+import EditCustomerPanel from "./EditCustomerPanel";
 
 export default async function CustomerDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const supabase = await createServerComponentClient();
 
-  // Kunde laden
   const { data: customer } = await supabase
     .from("customers")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (!customer) notFound();
 
-  // Reparaturen des Kunden laden
   const { data: repairs } = await supabase
     .from("repairs")
     .select("id, auftragsnummer, status, hersteller, modell, reparatur_problem, annahme_datum")
-    .eq("customer_id", params.id)
+    .eq("customer_id", id)
     .order("annahme_datum", { ascending: false });
 
   const repairList = repairs ?? [];
+  const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ") || "Unbekannt";
 
   const createdDate = new Date(customer.created_at).toLocaleDateString("de-DE", {
     day: "2-digit", month: "long", year: "numeric",
   });
-
-  const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ") || "Unbekannt";
 
   return (
     <main className="min-h-screen bg-white">
@@ -79,22 +78,17 @@ export default async function CustomerDetailPage({
               </svg>
               Neue Reparatur
             </Link>
-            <Link
-              href={`/customers/${params.id}/edit`}
-              className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-            >
-              Bearbeiten
-            </Link>
+            {/* EditCustomerPanel – bestehende Komponente, öffnet Modal */}
+            <EditCustomerPanel customer={customer} />
           </div>
         </div>
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* Links: Kontaktdaten */}
+          {/* Links: Kontaktdaten + Meta */}
           <div className="space-y-4">
 
-            {/* Kontakt */}
             <div className="rounded-xl border border-gray-100 overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
                 <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
@@ -117,8 +111,7 @@ export default async function CustomerDetailPage({
                 {customer.email && (
                   <div className="flex items-center px-4 py-2.5 gap-3">
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="text-gray-300 shrink-0">
-                      <rect x="1" y="3" width="12" height="8" rx="1.5"
-                        stroke="currentColor" strokeWidth="1.2" />
+                      <rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
                       <path d="M1 4l6 4 6-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                     </svg>
                     <a href={`mailto:${customer.email}`}
@@ -147,7 +140,6 @@ export default async function CustomerDetailPage({
               </div>
             </div>
 
-            {/* Notizen */}
             {customer.notes && (
               <div className="rounded-xl border border-gray-100 overflow-hidden">
                 <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
@@ -163,7 +155,6 @@ export default async function CustomerDetailPage({
               </div>
             )}
 
-            {/* KPI */}
             <div className="rounded-xl border border-gray-100 overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
                 <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
@@ -178,7 +169,9 @@ export default async function CustomerDetailPage({
                 <div className="flex items-center justify-between px-4 py-2.5">
                   <span className="text-[11.5px] text-gray-400">Offen</span>
                   <span className="text-[13px] font-semibold text-black">
-                    {repairList.filter(r => !["abgeschlossen", "storniert", "abgeholt"].includes(r.status)).length}
+                    {repairList.filter(r =>
+                      !["abgeschlossen", "storniert", "abgeholt"].includes(r.status)
+                    ).length}
                   </span>
                 </div>
               </div>
@@ -213,12 +206,9 @@ export default async function CustomerDetailPage({
                       href={`/repairs/${repair.id}`}
                       className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50/80 transition-colors group"
                     >
-                      {/* Auftragsnummer */}
                       <span className="font-mono text-[11px] text-gray-400 w-[130px] shrink-0">
                         {repair.auftragsnummer}
                       </span>
-
-                      {/* Gerät + Problem */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[12.5px] font-medium text-gray-900 leading-tight">
                           {repair.hersteller} {repair.modell}
@@ -227,20 +217,14 @@ export default async function CustomerDetailPage({
                           {repair.reparatur_problem || "—"}
                         </p>
                       </div>
-
-                      {/* Status */}
                       <div className="shrink-0">
                         <StatusPill status={repair.status as RepairStatus} />
                       </div>
-
-                      {/* Datum */}
                       <span className="text-[11px] text-gray-300 shrink-0 hidden sm:block">
                         {new Date(repair.annahme_datum).toLocaleDateString("de-DE", {
                           day: "2-digit", month: "2-digit", year: "2-digit",
                         })}
                       </span>
-
-                      {/* Arrow */}
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
                         className="text-gray-200 group-hover:text-gray-400 transition-colors shrink-0">
                         <polyline points="4,2 8,6 4,10" stroke="currentColor"
