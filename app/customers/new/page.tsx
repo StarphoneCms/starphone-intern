@@ -1,5 +1,7 @@
 "use client";
 
+// Pfad: src/app/customers/new/page.tsx
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -47,125 +49,115 @@ export default function NewCustomerPage() {
     }
   }
 
-  const fields = [
-    { name: "first_name", label: "Vorname", placeholder: "Max", type: "text", half: true },
-    { name: "last_name", label: "Nachname", placeholder: "Mustermann", type: "text", half: true },
-    { name: "phone", label: "Telefon", placeholder: "+49 ...", type: "tel", half: false },
-    { name: "email", label: "E-Mail", placeholder: "email@beispiel.de", type: "email", half: false },
-    { name: "address", label: "Adresse", placeholder: "Straße, PLZ Stadt", type: "text", half: false },
-  ];
+  const fullName = [form.first_name, form.last_name].filter(Boolean).join(" ") || "Neuer Kunde";
+  const initials = fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "NK";
 
-  const displayName = [form.first_name, form.last_name].filter(Boolean).join(" ") || "Neuer Kunde";
-  const initials = displayName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "NK";
+  const inputClass = "w-full h-9 px-3 text-[12.5px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-shadow";
+  const labelClass = "block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5";
 
   return (
-    <main className="min-h-screen bg-[#0d0f14] text-white px-4 py-6 md:px-6 xl:px-8">
-      {/* Hintergrund Glow */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-violet-600/8 blur-[130px]" />
-      </div>
+    <main className="min-h-screen bg-white">
+      <div className="max-w-[600px] mx-auto px-5 py-7">
 
-      <div className="w-full max-w-2xl space-y-6">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 mb-5 text-[11.5px] text-gray-400">
+          <Link href="/customers" className="hover:text-gray-700 transition-colors">
+            Kunden
+          </Link>
+          <span className="text-gray-200">/</span>
+          <span className="text-gray-600">Neuer Kunde</span>
+        </nav>
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <Link
-            href="/customers"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-400 transition hover:text-white hover:bg-white/8"
-          >
-            ← Kundendatei
-          </Link>
-        </div>
-
-        {/* Titel */}
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-violet-300 mb-3">
-            🙋‍♂️ KUNDEN · NEU
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Neuer Kunde</h1>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="mb-7">
+          <h1 className="text-[20px] font-semibold text-black tracking-tight">Neuer Kunde</h1>
+          <p className="text-[12px] text-gray-400 mt-0.5">
             Kunde anlegen ohne direkt einen Auftrag zu erstellen.
           </p>
         </div>
 
-        {/* Live Avatar Preview */}
-        <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm px-5 py-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-base font-bold text-white shadow-lg shadow-violet-500/20 shrink-0">
-            {initials}
+        {/* Live Preview */}
+        <div className="flex items-center gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 mb-6">
+          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+            <span className="text-[12px] font-semibold text-gray-500">{initials}</span>
           </div>
           <div>
-            <div className="text-sm font-semibold text-white">{displayName}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{form.phone || form.email || "Kontaktdaten noch nicht eingegeben"}</div>
+            <p className="text-[13px] font-medium text-gray-900">{fullName}</p>
+            <p className="text-[11.5px] text-gray-400 mt-0.5">
+              {form.phone || form.email || "Kontaktdaten noch nicht eingegeben"}
+            </p>
           </div>
         </div>
 
         {/* Formular */}
-        <div className="rounded-2xl border border-white/8 bg-white/4 backdrop-blur-sm p-6 space-y-5">
-          <h2 className="text-base font-semibold text-white">Stammdaten</h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            {fields.filter((f) => f.half).map((field) => (
-              <div key={field.name}>
-                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">{field.label}</label>
-                <input
-                  name={field.name}
-                  type={field.type}
-                  value={form[field.name as keyof typeof form]}
-                  onChange={handleChange}
-                  placeholder={field.placeholder}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition"
-                />
-              </div>
-            ))}
+        <div className="rounded-xl border border-gray-100 overflow-hidden mb-4">
+          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+            <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
+              Stammdaten
+            </span>
           </div>
+          <div className="bg-white px-4 py-4 space-y-4">
 
-          {fields.filter((f) => !f.half).map((field) => (
-            <div key={field.name}>
-              <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">{field.label}</label>
-              <input
-                name={field.name}
-                type={field.type}
-                value={form[field.name as keyof typeof form]}
-                onChange={handleChange}
-                placeholder={field.placeholder}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition"
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Vorname</label>
+                <input name="first_name" value={form.first_name} onChange={handleChange}
+                  placeholder="Max" className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Nachname</label>
+                <input name="last_name" value={form.last_name} onChange={handleChange}
+                  placeholder="Mustermann" className={inputClass} />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Telefon</label>
+              <input name="phone" type="tel" value={form.phone} onChange={handleChange}
+                placeholder="+49 …" className={inputClass} />
+            </div>
+
+            <div>
+              <label className={labelClass}>E-Mail</label>
+              <input name="email" type="email" value={form.email} onChange={handleChange}
+                placeholder="email@beispiel.de" className={inputClass} />
+            </div>
+
+            <div>
+              <label className={labelClass}>Adresse</label>
+              <input name="address" value={form.address} onChange={handleChange}
+                placeholder="Straße, PLZ Stadt" className={inputClass} />
+            </div>
+
+            <div>
+              <label className={labelClass}>Notizen</label>
+              <textarea name="notes" value={form.notes} onChange={handleChange}
+                rows={3} placeholder="Interne Notizen…"
+                className="w-full px-3 py-2.5 text-[12.5px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none"
               />
             </div>
-          ))}
 
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-slate-500 mb-1.5">Notizen</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Interne Notizen..."
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500/50 focus:bg-white/8 transition resize-none"
-            />
+            {error && (
+              <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-[12px] text-red-600">
+                {error}
+              </div>
+            )}
           </div>
+        </div>
 
-          {error && (
-            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Link
-              href="/customers"
-              className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm text-slate-400 transition hover:text-white hover:bg-white/8"
-            >
-              Abbrechen
-            </Link>
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? "Wird gespeichert..." : "Kunde anlegen"}
-            </button>
-          </div>
+        {/* Actions */}
+        <div className="flex items-center justify-between">
+          <Link href="/customers"
+            className="h-9 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-500 hover:bg-gray-50 transition-colors flex items-center">
+            Abbrechen
+          </Link>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="h-9 px-5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors disabled:opacity-40"
+          >
+            {saving ? "Speichern…" : "Kunde anlegen"}
+          </button>
         </div>
       </div>
     </main>

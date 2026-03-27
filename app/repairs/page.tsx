@@ -1,10 +1,9 @@
 // Pfad: src/app/repairs/page.tsx
-// SERVER COMPONENT – kein "use client", kein createClient vom Browser
-// Lädt Daten serverseitig via Supabase, übergibt sie als Props an RepairsClient
+// SERVER COMPONENT
 
 import { createServerComponentClient } from "@/lib/supabase/server";
-import RepairsClient from "./RepairsClient";
 import Link from "next/link";
+import RepairsClient from "./RepairsClient";
 
 export type RepairListItem = {
   id: string;
@@ -17,6 +16,10 @@ export type RepairListItem = {
   kunden_name: string;
   kunden_telefon: string | null;
   customer_id: string | null;
+  // ── Neu ──
+  mitarbeiter_name: string | null;
+  fach_nummer: number | null;
+  // ─────────
   customers: {
     id: string;
     first_name: string;
@@ -25,34 +28,33 @@ export type RepairListItem = {
   } | null;
 };
 
+const INACTIVE = ["abgeschlossen", "storniert", "abgeholt"];
+
+function isToday(iso: string) {
+  const d = new Date(iso);
+  const n = new Date();
+  return d.getDate() === n.getDate() && d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
+}
+
 export default async function RepairsPage() {
   const supabase = await createServerComponentClient();
 
-  const { data: repairs } = await supabase
+  const { data, error } = await supabase
     .from("repairs")
     .select(
       `id, auftragsnummer, annahme_datum, status,
        hersteller, modell, reparatur_problem,
        kunden_name, kunden_telefon, customer_id,
+       mitarbeiter_name, fach_nummer,
        customers(id, first_name, last_name, phone)`
     )
     .order("annahme_datum", { ascending: false });
 
-const list: RepairListItem[] = (repairs as any[]) ?? [];
+  const list = ((data ?? []) as unknown as RepairListItem[]);
 
-  // KPIs serverseitig berechnen
-  const INACTIVE = ["abgeschlossen", "storniert", "abgeholt"];
   const activeCount = list.filter((r) => !INACTIVE.includes(r.status)).length;
   const readyCount  = list.filter((r) => r.status === "abholbereit").length;
-  const todayCount  = list.filter((r) => {
-    const d = new Date(r.annahme_datum);
-    const n = new Date();
-    return (
-      d.getDate() === n.getDate() &&
-      d.getMonth() === n.getMonth() &&
-      d.getFullYear() === n.getFullYear()
-    );
-  }).length;
+  const todayCount  = list.filter((r) => isToday(r.annahme_datum)).length;
 
   return (
     <main className="min-h-screen bg-white">
@@ -61,12 +63,8 @@ const list: RepairListItem[] = (repairs as any[]) ?? [];
         {/* Header */}
         <div className="flex items-start justify-between mb-7">
           <div>
-            <h1 className="text-[20px] font-semibold text-black tracking-tight">
-              Reparaturen
-            </h1>
-            <p className="text-[12px] text-gray-400 mt-0.5">
-              {list.length} Aufträge gesamt
-            </p>
+            <h1 className="text-[20px] font-semibold text-black tracking-tight">Reparaturen</h1>
+            <p className="text-[12px] text-gray-400 mt-0.5">{list.length} Aufträge gesamt</p>
           </div>
           <Link
             href="/repairs/new"
@@ -89,20 +87,15 @@ const list: RepairListItem[] = (repairs as any[]) ?? [];
             { label: "Alle Aufträge",   value: list.length,  sub: "in der Datenbank" },
           ].map(({ label, value, sub }) => (
             <div key={label} className="bg-gray-50 rounded-xl px-5 py-4 border border-gray-100">
-              <p className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">
-                {label}
-              </p>
-              <p className="text-[28px] font-semibold text-black tracking-tight leading-none">
-                {value}
-              </p>
+              <p className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">{label}</p>
+              <p className="text-[28px] font-semibold text-black tracking-tight leading-none">{value}</p>
               <p className="text-[11px] text-gray-400 mt-1.5">{sub}</p>
             </div>
           ))}
         </div>
 
-        {/* Client Component übernimmt Filter/Suche/Tabelle */}
+        {/* Client Component */}
         <RepairsClient initialRepairs={list} />
-
       </div>
     </main>
   );
