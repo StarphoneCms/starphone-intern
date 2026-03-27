@@ -52,7 +52,7 @@ export default async function RepairDetailPage({
   const { data: repair } = await supabase
     .from("repairs")
     .select(`
-      *,
+      *, mitarbeiter_name, fach_nummer,
       customers(id, first_name, last_name, phone, email),
       repair_notes(id, note, created_at, created_by)
     `)
@@ -92,36 +92,59 @@ export default async function RepairDetailPage({
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
           <div>
+            {/* Titel + Status */}
             <div className="flex flex-wrap items-center gap-2.5 mb-2">
               <h1 className="text-[20px] font-semibold text-black tracking-tight">
                 {repair.hersteller} {repair.modell}
               </h1>
               <StatusPill status={repair.status as RepairStatus} />
             </div>
+
+            {/* Meta-Zeile: Auftragsnr · Datum · Kunde */}
             <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-gray-400">
               <span className="font-mono">{repair.auftragsnummer}</span>
               <span className="text-gray-200">·</span>
               <span>{createdDate}</span>
               <span className="text-gray-200">·</span>
               {repair.customers?.id ? (
-                <Link href={`/customers/${repair.customers.id}`}
-                  className="hover:text-gray-700 transition-colors">
+                <Link
+                  href={`/customers/${repair.customers.id}`}
+                  className="hover:text-gray-700 transition-colors"
+                >
                   {displayName}
                 </Link>
               ) : (
                 <span>{displayName}</span>
               )}
             </div>
+
+            {/* ── Mitarbeiter + Fach – prominent sichtbar ── */}
+            {(repair.mitarbeiter_name || repair.fach_nummer) && (
+              <div className="flex items-center gap-2 mt-2.5">
+                <span className="text-[11px] text-gray-400">Angenommen von</span>
+                {repair.mitarbeiter_name && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-gray-900 text-white">
+                    {repair.mitarbeiter_name}
+                  </span>
+                )}
+                {repair.fach_nummer && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                    Fach {repair.fach_nummer}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
+          {/* Aktions-Buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <StatusChanger id={repair.id} current={repair.status} />
             <EditRepairPanel repair={repair} />
-              <PrintButtons repairId={id} />   
-                        </div>
+            <PrintButtons repairId={id} />
+          </div>
         </div>
 
-        {/* Timeline – Client Component, aktualisiert sich live */}
+        {/* Timeline */}
         <div className="mb-6 border border-gray-100 rounded-xl overflow-hidden">
           <StatusTimeline initialStatus={repair.status} />
         </div>
@@ -210,8 +233,10 @@ export default async function RepairDetailPage({
               title="Kunde"
               action={
                 repair.customers?.id ? (
-                  <Link href={`/customers/${repair.customers.id}`}
-                    className="text-[11px] text-gray-400 hover:text-gray-700 transition-colors">
+                  <Link
+                    href={`/customers/${repair.customers.id}`}
+                    className="text-[11px] text-gray-400 hover:text-gray-700 transition-colors"
+                  >
                     Profil →
                   </Link>
                 ) : undefined
@@ -246,6 +271,9 @@ export default async function RepairDetailPage({
             </SectionCard>
 
             <SectionCard title="Info">
+              {/* ── Mitarbeiter + Fach in der Info-Card ── */}
+              <DataRow label="Angenommen von" value={repair.mitarbeiter_name} />
+              <DataRow label="Fachnummer"     value={repair.fach_nummer ? `Fach ${repair.fach_nummer}` : null} />
               <DataRow
                 label="Angelegt"
                 value={new Date(repair.annahme_datum).toLocaleDateString("de-DE", {
@@ -264,6 +292,7 @@ export default async function RepairDetailPage({
               )}
               <DataRow label="Auftragsnr." value={repair.auftragsnummer} mono />
             </SectionCard>
+
           </div>
         </div>
       </div>

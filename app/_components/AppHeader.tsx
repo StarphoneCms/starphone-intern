@@ -28,23 +28,13 @@ export default function AppHeader() {
         <div className="flex items-center h-full px-4 gap-5 max-w-[1600px] mx-auto">
 
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <div
-              className="flex items-center justify-center rounded-[5px] bg-black"
-              style={{ width: 22, height: 22 }}
-            >
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                <rect x="3" y="1" width="8" height="12" rx="1.5"
-                  stroke="white" strokeWidth="1.2" fill="none" />
-                <circle cx="7" cy="10.5" r="0.75" fill="white" />
-                <line x1="5" y1="3.8" x2="9" y2="3.8"
-                  stroke="white" strokeWidth="1" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="text-[13px] font-semibold text-black tracking-tight select-none">
-              Starphone
-            </span>
-          </Link>
+          <Link href="/dashboard" className="flex items-center shrink-0">
+        <img
+         src="/icons/logo.png"
+         alt="Starphone"
+        style={{ height: 28, width: "auto" }}
+            />
+            </Link>
 
           {/* Divider */}
           <div className="h-4 w-px shrink-0" style={{ background: "#e9e9e9" }} />

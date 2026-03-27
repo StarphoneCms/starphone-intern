@@ -9,6 +9,7 @@ import {
 
 type StatistikProps = {
   statusData: { name: string; count: number; color: string }[];
+  reparaturArtenData: { name: string; count: number }[];
   monthlyData: { month: string; auftraege: number }[];
   herstellerData: { name: string; count: number }[];
   avgDuration: number | null;
@@ -32,13 +33,7 @@ function CustomTooltip({ active, payload, label }: {
 
 function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`
-      relative overflow-hidden rounded-2xl
-      bg-white/70 backdrop-blur-xl
-      border border-white/80
-      shadow-[0_8px_32px_rgba(0,0,0,0.08),0_1px_0_rgba(255,255,255,0.8)_inset]
-      ${className}
-    `}>
+    <div className={`relative overflow-hidden rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-[0_8px_32px_rgba(0,0,0,0.08),0_1px_0_rgba(255,255,255,0.8)_inset] ${className}`}>
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/40 to-transparent pointer-events-none" />
       <div className="relative z-10">{children}</div>
     </div>
@@ -59,20 +54,12 @@ function MetricCard({ label, value, sub, accent }: {
   );
 }
 
-const STATUS_COLORS: Record<string, { pill: string }> = {
-  "Angenommen":          { pill: "bg-amber-50   text-amber-800   border-amber-200"   },
-  "In Diagnose":         { pill: "bg-blue-50    text-blue-800    border-blue-200"    },
-  "Rückfrage Kunde":     { pill: "bg-red-50     text-red-800     border-red-200"     },
-  "Ersatzteil bestellt": { pill: "bg-violet-50  text-violet-800  border-violet-200"  },
-  "In Reparatur":        { pill: "bg-indigo-50  text-indigo-800  border-indigo-200"  },
-  "Abholbereit":         { pill: "bg-emerald-50 text-emerald-800 border-emerald-200" },
-  "Abgeschlossen":       { pill: "bg-gray-100   text-gray-600    border-gray-200"    },
-};
+const ARTEN_COLORS = ["#6366F1", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
 
 export default function StatistikClient({
-  statusData, monthlyData, herstellerData, avgDuration, totalRepairs, totalCustomers,
+  statusData, reparaturArtenData, monthlyData, herstellerData, avgDuration, totalRepairs, totalCustomers,
 }: StatistikProps) {
-  const abgeschlossen = statusData.find((s) => s.name === "Abgeschlossen")?.count ?? 0;
+  const abgeschlossen  = statusData.find((s) => s.name === "Abgeschlossen")?.count ?? 0;
   const activeStatuses = statusData.filter((s) => s.count > 0);
 
   return (
@@ -86,43 +73,10 @@ export default function StatistikClient({
         <MetricCard label="Ø Reparaturdauer" value={avgDuration !== null ? `${avgDuration}d` : "—"} sub="Abgeschlossene Aufträge" />
       </div>
 
-      {/* Status Übersicht – nur Balken + Anzahl, keine Prozente */}
-      <GlassCard>
-        <div className="p-5">
-          <div className="text-sm font-semibold text-gray-700 mb-4">Status Übersicht</div>
-          <div className="space-y-2.5">
-            {statusData.map((s) => {
-              const max = Math.max(...statusData.map((d) => d.count), 1);
-              const pct = Math.round((s.count / max) * 100);
-              const colors = STATUS_COLORS[s.name];
-              return (
-                <div key={s.name} className="flex items-center gap-3">
-                  {/* Status Pill */}
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-medium w-44 shrink-0 ${colors?.pill ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                    {s.name}
-                  </span>
-                  {/* Balken */}
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${pct}%`, backgroundColor: s.color }}
-                    />
-                  </div>
-                  {/* Nur Anzahl */}
-                  <span className="text-sm font-semibold text-gray-900 w-6 text-right tabular-nums">
-                    {s.count}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </GlassCard>
-
       {/* Charts Row */}
       <div className="grid xl:grid-cols-2 gap-5">
 
+        {/* Aufträge pro Monat */}
         <GlassCard>
           <div className="p-5">
             <div className="text-sm font-semibold text-gray-700 mb-0.5">Aufträge pro Monat</div>
@@ -142,6 +96,7 @@ export default function StatistikClient({
           </div>
         </GlassCard>
 
+        {/* Status Pie */}
         <GlassCard>
           <div className="p-5">
             <div className="text-sm font-semibold text-gray-700 mb-0.5">Status Verteilung</div>
@@ -158,11 +113,8 @@ export default function StatistikClient({
                     ))}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend
-                    formatter={(value) => <span style={{ color: "#6B7280", fontSize: 11 }}>{value}</span>}
-                    iconSize={8}
-                    iconType="circle"
-                  />
+                  <Legend formatter={(value) => <span style={{ color: "#6B7280", fontSize: 11 }}>{value}</span>}
+                    iconSize={8} iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -170,7 +122,36 @@ export default function StatistikClient({
         </GlassCard>
       </div>
 
-      {/* Hersteller */}
+      {/* ── Reparaturarten (NEU) ── */}
+      <GlassCard>
+        <div className="p-5">
+          <div className="text-sm font-semibold text-gray-700 mb-0.5">Reparaturarten</div>
+          <div className="text-xs text-gray-400 mb-5">Nach Gerätetyp</div>
+          {reparaturArtenData.length === 0 ? (
+            <div className="flex h-24 items-center justify-center text-sm text-gray-400">Keine Daten</div>
+          ) : (
+            <div className="space-y-2.5">
+              {reparaturArtenData.map((item, i) => {
+                const max = reparaturArtenData[0].count;
+                const pct = Math.round((item.count / max) * 100);
+                const color = ARTEN_COLORS[i % ARTEN_COLORS.length];
+                return (
+                  <div key={item.name} className="flex items-center gap-3">
+                    <div className="w-24 text-xs font-medium text-gray-600 text-right shrink-0">{item.name}</div>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                    <div className="w-6 text-xs font-semibold text-gray-700 tabular-nums">{item.count}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </GlassCard>
+
+      {/* Top Hersteller */}
       <GlassCard>
         <div className="p-5">
           <div className="text-sm font-semibold text-gray-700 mb-0.5">Top Hersteller</div>
@@ -187,10 +168,8 @@ export default function StatistikClient({
                   <div key={h.name} className="flex items-center gap-3">
                     <div className="w-20 text-xs font-medium text-gray-600 text-right shrink-0">{h.name}</div>
                     <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, backgroundColor: colors[i % colors.length] }}
-                      />
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, backgroundColor: colors[i % colors.length] }} />
                     </div>
                     <div className="w-8 text-xs font-semibold text-gray-700 tabular-nums">{h.count}</div>
                   </div>
@@ -200,7 +179,6 @@ export default function StatistikClient({
           )}
         </div>
       </GlassCard>
-
     </div>
   );
 }
