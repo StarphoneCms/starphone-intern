@@ -43,16 +43,16 @@ const ZUSATZ_KATALOG: ZusatzKategorie[] = [
     id: "panzerglas_basic",
     label: "Panzerglas Basic",
     icon: "🛡️",
-    varianten: [{ label: "Klar", preis: 9.99 }],
+    varianten: [{ label: "Klar", preis: 10.00 }],
   },
   {
     id: "panzerglas_premium",
     label: "Panzerglas Premium",
     icon: "✨",
     varianten: [
-      { label: "Klar",    preis: 14.99 },
-      { label: "Matt",    preis: 14.99 },
-      { label: "Privacy", preis: 19.99 },
+      { label: "Klar",    preis: 20.00 },
+      { label: "Matt",    preis: 20.00 },
+      { label: "Privacy", preis: 20.00 },
     ],
   },
   {
@@ -60,9 +60,9 @@ const ZUSATZ_KATALOG: ZusatzKategorie[] = [
     label: "Schutzfolie",
     icon: "📱",
     varianten: [
-      { label: "Klar",    preis: 7.99  },
-      { label: "Matt",    preis: 7.99  },
-      { label: "Privacy", preis: 12.99 },
+      { label: "Klar",    preis: 15.00  },
+      { label: "Matt",    preis: 15.00  },
+      { label: "Privacy", preis: 15.00 },
     ],
   },
 ];
