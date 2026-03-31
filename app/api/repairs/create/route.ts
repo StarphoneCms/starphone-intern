@@ -1,178 +1,119 @@
-import { NextResponse } from "next/server";
+// Pfad: src/app/api/repairs/create/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 
-function text(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
-function normalizePhone(value: string) { return value.trim(); }
-
-function splitName(fullName: string) {
-  const clean = fullName.trim();
-  if (!clean) return { first_name: "", last_name: "" };
-  const parts = clean.split(/\s+/);
-  if (parts.length === 1) return { first_name: parts[0], last_name: "" };
-  return { first_name: parts.slice(0, -1).join(" "), last_name: parts.slice(-1).join(" ") };
+function generateAuftragsnummer(): string {
+  const now    = new Date();
+  const year   = now.getFullYear().toString().slice(-2);
+  const month  = String(now.getMonth() + 1).padStart(2, "0");
+  const day    = String(now.getDate()).padStart(2, "0");
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `SP-${year}${month}${day}-${random}`;
 }
 
-function buildCustomerCode() { return `CU-${Date.now().toString().slice(-8)}`; }
-function buildOrderNumber()  { return `SP-${Date.now()}`; }
+export async function POST(req: NextRequest) {
+  try {
+    // ✅ Fix: await hinzugefügt – createRouteClient() ist async
+    const supabase = await createRouteClient();
+    const { data: { session } } = await supabase.auth.getSession();
 
-export async function POST(req: Request) {
-  const supabase = await createRouteClient();
-
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth?.user) {
-    return NextResponse.json({ ok: false, error: { message: "Nicht eingeloggt." } }, { status: 401 });
-  }
-
-  const formData = await req.formData();
-
-  const customer_id       = text(formData, "customer_id") || null;
-  const kunden_name       = text(formData, "kunden_name");
-  const kunden_telefon    = normalizePhone(text(formData, "kunden_telefon"));
-  const kunden_email      = normalizeEmail(text(formData, "kunden_email"));
-  const kunden_adresse    = text(formData, "kunden_adresse");
-  const geraetetyp        = text(formData, "geraetetyp");
-  const hersteller        = text(formData, "hersteller");
-  const modell            = text(formData, "modell");
-  const imei              = text(formData, "imei");
-  const geraete_code      = text(formData, "geraete_code");
-  const reparatur_problem = text(formData, "reparatur_problem");
-  const unterschrift      = text(formData, "unterschrift") || null;
-  const agb_akzeptiert    = text(formData, "agb_akzeptiert") === "true";
-
-  // ── Neu: Mitarbeiter + Fach ───────────────────────────────────────────────
-  const mitarbeiter_name  = text(formData, "mitarbeiter_name") || null;
-  const fach_raw          = text(formData, "fach_nummer");
-  const fach_nummer       = fach_raw ? parseInt(fach_raw, 10) : null;
-  // ─────────────────────────────────────────────────────────────────────────
-
-  if (!kunden_name) {
-    return NextResponse.json({ ok: false, error: { message: "Kundenname fehlt." } }, { status: 400 });
-  }
-  if (!reparatur_problem) {
-    return NextResponse.json({ ok: false, error: { message: "Fehlerbeschreibung fehlt." } }, { status: 400 });
-  }
-
-  let customerId: string | null = null;
-
-  // 1) Kunde per E-Mail suchen
-  if (kunden_email) {
-    const { data: c } = await supabase.from("customers").select("id, first_name, last_name, phone, address")
-      .eq("email", kunden_email).maybeSingle();
-    if (c?.id) {
-      customerId = c.id;
-      const { first_name, last_name } = splitName(kunden_name);
-      await supabase.from("customers").update({
-        first_name: c.first_name || first_name || null,
-        last_name:  c.last_name  || last_name  || null,
-        phone:      c.phone      || kunden_telefon || null,
-        address:    c.address    || kunden_adresse || null,
-        updated_at: new Date().toISOString(),
-      }).eq("id", c.id);
-    }
-  }
-
-  // 2) Kunde per Telefon suchen
-  if (!customerId && kunden_telefon) {
-    const { data: c } = await supabase.from("customers").select("id, first_name, last_name, email, address")
-      .eq("phone", kunden_telefon).maybeSingle();
-    if (c?.id) {
-      customerId = c.id;
-      const { first_name, last_name } = splitName(kunden_name);
-      await supabase.from("customers").update({
-        first_name: c.first_name || first_name || null,
-        last_name:  c.last_name  || last_name  || null,
-        email:      c.email      || kunden_email   || null,
-        address:    c.address    || kunden_adresse || null,
-        updated_at: new Date().toISOString(),
-      }).eq("id", c.id);
-    }
-  }
-
-  // 3) Neuen Kunden anlegen
-  if (!customerId) {
-    const { first_name, last_name } = splitName(kunden_name);
-    const { data: newCustomer, error: customerInsertError } = await supabase
-      .from("customers").insert({
-        customer_code: buildCustomerCode(),
-        first_name: first_name || kunden_name,
-        last_name:  last_name  || null,
-        phone:      kunden_telefon || null,
-        email:      kunden_email   || null,
-        address:    kunden_adresse || null,
-        notes:      "Automatisch aus Reparaturannahme angelegt",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }).select("id").single();
-
-    if (customerInsertError || !newCustomer?.id) {
+    if (!session) {
       return NextResponse.json(
-        { ok: false, error: { message: customerInsertError?.message || "Kunde konnte nicht angelegt werden." } },
+        { ok: false, error: { message: "Nicht eingeloggt" } },
+        { status: 401 }
+      );
+    }
+
+    const formData = await req.formData();
+    const g = (key: string) => (formData.get(key) as string | null)?.trim() ?? "";
+
+    const kunden_name = g("kunden_name");
+    if (!kunden_name) {
+      return NextResponse.json(
+        { ok: false, error: { message: "Kundenname fehlt" } },
         { status: 400 }
       );
     }
-    customerId = newCustomer.id;
-  }
 
-  const now = new Date().toISOString();
+    // Zahlen parsen
+    const fach_nummer_raw      = g("fach_nummer");
+    const fach_nummer          = fach_nummer_raw ? parseInt(fach_nummer_raw, 10) : null;
+    const reparatur_preis_raw  = g("reparatur_preis");
+    const reparatur_preis      = reparatur_preis_raw ? parseFloat(reparatur_preis_raw) : null;
+    const zusatz_gesamt_raw    = g("zusatzverkauf_gesamt");
+    const zusatzverkauf_gesamt = zusatz_gesamt_raw ? parseFloat(zusatz_gesamt_raw) : 0;
 
-  const { data: repair, error: repairInsertError } = await supabase
-    .from("repairs").insert({
-      customer_id:      customer_id || customerId,
-      auftragsnummer:   buildOrderNumber(),
-      annahme_datum:    now,
-      mitarbeiter:      auth.user.id,
+    // Zusatzverkauf JSON parsen
+    let zusatzverkauf_items: unknown[] = [];
+    try {
+      const raw = g("zusatzverkauf_items");
+      if (raw) zusatzverkauf_items = JSON.parse(raw);
+    } catch { /* ignore */ }
 
-      geraetetyp:        geraetetyp || null,
-      hersteller:        hersteller || null,
-      modell:            modell     || null,
-      imei:              imei       || null,
-      geraete_code:      geraete_code || null,
-      reparatur_problem: reparatur_problem || null,
+    const now = new Date().toISOString();
 
-      kunden_name:    kunden_name    || null,
-      kunden_adresse: kunden_adresse || null,
-      kunden_telefon: kunden_telefon || null,
-      kunden_email:   kunden_email   || null,
-
-      unterschrift:    unterschrift,
-      agb_akzeptiert:  agb_akzeptiert,
-
-      // ── Neu ────────────────────────────────────────────────────────────────
-      mitarbeiter_name: mitarbeiter_name,
-      fach_nummer:      fach_nummer,
-      // ───────────────────────────────────────────────────────────────────────
-
-      status:                "angenommen",
+    const insertData = {
+      auftragsnummer:        generateAuftragsnummer(),
+      status:                "in_reparatur",
+      annahme_datum:         now,
       letzter_statuswechsel: now,
-      created_by:  auth.user.id,
-      created_at:  now,
-      updated_at:  now,
-      updated_by:  auth.user.id,
-    }).select("id").single();
+      kunden_name,
+      kunden_telefon:        g("kunden_telefon")   || null,
+      kunden_email:          g("kunden_email")      || null,
+      kunden_adresse:        g("kunden_adresse")    || null,
+      geraetetyp:            g("geraetetyp")        || null,
+      hersteller:            g("hersteller")        || null,
+      modell:                g("modell")            || null,
+      imei:                  g("imei")              || null,
+      geraete_code:          g("geraete_code")      || null,
+      reparatur_problem:     g("reparatur_problem") || null,
+      internal_note:         g("internal_note")     || null,
+      mitarbeiter_name:      g("mitarbeiter_name")  || null,
+      fach_nummer,
+      agb_akzeptiert:        g("agb_akzeptiert") === "true",
+      unterschrift:          g("unterschrift")      || null,
+      customer_id:           g("customer_id")       || null,
+      created_by:            session.user.id,
+      updated_by:            session.user.id,
+      updated_at:            now,
+      // Preisfelder
+      reparatur_preis,
+      zusatzverkauf_items,
+      zusatzverkauf_gesamt,
+    };
 
-  if (repairInsertError || !repair?.id) {
+    const { data, error } = await supabase
+      .from("repairs")
+      .insert(insertData)
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("DB Fehler:", error.message, error.details);
+      return NextResponse.json({ ok: false, error }, { status: 500 });
+    }
+
+    // Startnotiz anlegen
+    await supabase.from("repair_notes").insert({
+      repair_id:  data.id,
+      note:       [
+        "Auftrag angelegt",
+        insertData.mitarbeiter_name ? `Angenommen von: ${insertData.mitarbeiter_name}` : null,
+        fach_nummer                 ? `Fach ${fach_nummer}` : null,
+        insertData.agb_akzeptiert   ? "AGB akzeptiert · Unterschrift vorhanden" : null,
+      ].filter(Boolean).join(" · "),
+      created_by: session.user.id,
+      created_at: now,
+    });
+
+    return NextResponse.json({ ok: true, id: data.id });
+
+  } catch (err: unknown) {
+    console.error("Unbekannter Fehler:", err);
     return NextResponse.json(
-      { ok: false, error: { message: repairInsertError?.message || "Auftrag konnte nicht erstellt werden." } },
-      { status: 400 }
+      { ok: false, error: { message: err instanceof Error ? err.message : "Unbekannter Fehler" } },
+      { status: 500 }
     );
   }
-
-  // Startnotiz mit Mitarbeiter + Fach
-  const noteparts = ["Auftrag angelegt"];
-  if (mitarbeiter_name) noteparts.push(`Angenommen von: ${mitarbeiter_name}`);
-  if (fach_nummer)      noteparts.push(`Fach ${fach_nummer}`);
-  if (agb_akzeptiert)   noteparts.push("AGB akzeptiert");
-
-  await supabase.from("repair_notes").insert({
-    repair_id:  repair.id,
-    note:       noteparts.join(" · "),
-    created_by: auth.user.id,
-    created_at: now,
-  });
-
-  return NextResponse.json({ ok: true, id: repair.id }, { status: 200 });
 }

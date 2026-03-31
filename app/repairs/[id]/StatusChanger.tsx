@@ -3,128 +3,159 @@
 // Pfad: src/app/repairs/[id]/StatusChanger.tsx
 
 import { useState } from "react";
-import { STATUS_CONFIG, RepairStatus } from "@/lib/repair-types";
+import { createClient } from "@/lib/supabase/browser";
 
-const STATUS_OPTIONS: RepairStatus[] = [
-  "angenommen",
-  "in_diagnose",
-  "in_arbeit",
-  "in_reparatur",
-  "rueckfrage_kunde",
-  "ersatzteil_bestellt",
-  "fertig",
-  "abholbereit",
-  "abgeholt",
-  "abgeschlossen",
-  "storniert",
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export function StatusChanger({
-  id,
-  current,
-  onChanged,
+type Status =
+  | "in_reparatur"
+  | "warten_ersatzteile"
+  | "warten_kunde"
+  | "aussendienst"
+  | "nicht_moeglich"
+  | "abholbereit"
+  | "abgeschlossen";
+
+type StatusConfig = {
+  label: string;
+  color: string;
+  pillBg: string;
+  pillText: string;
+  pillBorder: string;
+};
+
+// ─── Status Konfiguration ─────────────────────────────────────────────────────
+
+export const STATUS_CONFIG: Record<Status, StatusConfig> = {
+  in_reparatur:       { label: "In Reparatur",           color: "bg-blue-500",   pillBg: "bg-blue-50",   pillText: "text-blue-700",   pillBorder: "border-blue-200"   },
+  warten_ersatzteile: { label: "Warten auf Ersatzteile",  color: "bg-amber-500",  pillBg: "bg-amber-50",  pillText: "text-amber-700",  pillBorder: "border-amber-200"  },
+  warten_kunde:       { label: "Warten auf Kunden",       color: "bg-orange-500", pillBg: "bg-orange-50", pillText: "text-orange-700", pillBorder: "border-orange-200" },
+  aussendienst:       { label: "Außendienst",             color: "bg-violet-500", pillBg: "bg-violet-50", pillText: "text-violet-700", pillBorder: "border-violet-200" },
+  nicht_moeglich:     { label: "Reparatur nicht möglich", color: "bg-red-500",    pillBg: "bg-red-50",    pillText: "text-red-700",    pillBorder: "border-red-200"    },
+  abholbereit:        { label: "Abholbereit",             color: "bg-green-500",  pillBg: "bg-green-50",  pillText: "text-green-700",  pillBorder: "border-green-200"  },
+  abgeschlossen:      { label: "Abgeschlossen",           color: "bg-gray-400",   pillBg: "bg-gray-100",  pillText: "text-gray-600",   pillBorder: "border-gray-200"   },
+};
+
+// ─── StatusPill ───────────────────────────────────────────────────────────────
+
+export function StatusPill({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status as Status];
+  if (!cfg) return <span className="text-gray-400 text-[12px]">{status}</span>;
+  return (
+    <span className={[
+      "inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full border text-[11.5px] font-medium",
+      cfg.pillBg, cfg.pillText, cfg.pillBorder,
+    ].join(" ")}>
+      <span className={["w-1.5 h-1.5 rounded-full", cfg.color].join(" ")} />
+      {cfg.label}
+    </span>
+  );
+}
+
+// ─── StatusChanger ────────────────────────────────────────────────────────────
+
+export default function StatusChanger({
+  repairId,
+  currentStatus,
+  onStatusChanged,
 }: {
-  id: string;
-  current: string;
-  onChanged?: (next: { status: string; letzter_statuswechsel?: string }) => void;
+  repairId: string;
+  currentStatus: string;
+  onStatusChanged?: (newStatus: string) => void;
 }) {
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [active, setActive]     = useState<RepairStatus>(current as RepairStatus);
-  const [open, setOpen]         = useState(false);
+  const supabase  = createClient();
+  const [open,    setOpen]    = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
 
-  async function updateStatus(newStatus: RepairStatus) {
-    if (newStatus === active) { setOpen(false); return; }
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/repairs/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+  const cfg = STATUS_CONFIG[currentStatus as Status];
+
+  async function handleChange(newStatus: Status) {
+    if (newStatus === currentStatus) { setOpen(false); return; }
+    setLoading(newStatus);
+
+    const { error } = await supabase
+      .from("repairs")
+      .update({
+        status: newStatus,
+        letzter_statuswechsel: new Date().toISOString(),
+      })
+      .eq("id", repairId);
+
+    // Automatische Statusnotiz
+    if (!error) {
+      const oldLabel = STATUS_CONFIG[currentStatus as Status]?.label ?? currentStatus;
+      const newLabel = STATUS_CONFIG[newStatus]?.label ?? newStatus;
+      await supabase.from("repair_notes").insert({
+        repair_id: repairId,
+        note: `Status geändert: ${oldLabel} → ${newLabel}`,
       });
-      const text = await res.text();
-      const json = text ? JSON.parse(text) : null;
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error?.message ?? `Fehler (${res.status})`);
-      }
-
-      // Status lokal updaten
-      setActive(newStatus);
-      onChanged?.(json.data);
-
-      // Custom Event für StatusTimeline
-      window.dispatchEvent(
-        new CustomEvent("repairStatusChanged", { detail: { status: newStatus } })
-      );
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Fehler");
-    } finally {
-      setLoading(false);
-      setOpen(false);
     }
-  }
 
-  const cfg = STATUS_CONFIG[active];
+    setLoading(null);
+    if (error) { alert("Fehler: " + error.message); return; }
+    setOpen(false);
+    onStatusChanged?.(newStatus);
+
+    // Seite neu laden damit Header-Status aktuell ist
+    window.location.reload();
+  }
 
   return (
     <div className="relative">
-      {/* Aktueller Status als Button */}
+      {/* Trigger Button */}
       <button
-        onClick={() => setOpen((v) => !v)}
-        disabled={loading}
+        onClick={() => setOpen(v => !v)}
         className={[
-          "h-8 flex items-center gap-2 px-3 rounded-lg border text-[12px] font-medium transition-colors",
-          cfg?.bg ?? "bg-gray-50",
-          cfg?.text ?? "text-gray-600",
-          cfg?.border ?? "border-gray-200",
-          "hover:opacity-80",
-        ].join(" ")}
-      >
-        <span className={["w-1.5 h-1.5 rounded-full shrink-0", cfg?.dot ?? "bg-gray-400"].join(" ")} />
-        {loading ? "…" : (cfg?.label ?? active)}
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-50">
-          <polyline points="2,4 5,7 8,4" stroke="currentColor" strokeWidth="1.2"
-            strokeLinecap="round" strokeLinejoin="round" />
+          "inline-flex items-center gap-1.5 h-8 pl-2.5 pr-2 rounded-lg border text-[12px] font-medium transition-colors",
+          cfg
+            ? `${cfg.pillBg} ${cfg.pillText} ${cfg.pillBorder}`
+            : "bg-gray-100 text-gray-600 border-gray-200",
+        ].join(" ")}>
+        {cfg && <span className={["w-2 h-2 rounded-full shrink-0", cfg.color].join(" ")} />}
+        <span>{cfg?.label ?? currentStatus}</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="ml-0.5 opacity-60">
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
       {/* Dropdown */}
       {open && (
         <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute right-0 top-10 z-50 w-52 bg-white rounded-xl border border-gray-100 shadow-lg overflow-hidden">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-10 z-50 w-60 rounded-xl border border-gray-100 bg-white shadow-xl overflow-hidden">
             <div className="px-3 py-2 border-b border-gray-50">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+              <p className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">
                 Status ändern
-              </span>
+              </p>
             </div>
             <div className="py-1">
-              {STATUS_OPTIONS.map((s) => {
-                const c = STATUS_CONFIG[s];
-                const isActive = s === active;
+              {(Object.entries(STATUS_CONFIG) as [Status, StatusConfig][]).map(([key, s]) => {
+                const isActive  = key === currentStatus;
+                const isLoading = loading === key;
                 return (
                   <button
-                    key={s}
-                    onClick={() => updateStatus(s)}
-                    disabled={loading}
+                    key={key}
+                    onClick={() => handleChange(key)}
+                    disabled={!!loading}
                     className={[
-                      "w-full flex items-center gap-2.5 px-3 py-2 text-[12px] transition-colors text-left",
-                      isActive
-                        ? "bg-gray-50 font-medium text-gray-900"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
-                    ].join(" ")}
-                  >
-                    <span className={["w-2 h-2 rounded-full shrink-0", c.dot].join(" ")} />
-                    {c.label}
+                      "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                      isActive ? "bg-gray-50" : "hover:bg-gray-50",
+                      loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                    ].join(" ")}>
+                    {isLoading ? (
+                      <div className="w-2 h-2 rounded-full border border-gray-400 border-t-transparent animate-spin shrink-0" />
+                    ) : (
+                      <span className={["w-2 h-2 rounded-full shrink-0", s.color].join(" ")} />
+                    )}
+                    <span className={[
+                      "text-[12.5px] flex-1",
+                      isActive ? "font-semibold text-gray-900" : "text-gray-700",
+                    ].join(" ")}>
+                      {s.label}
+                    </span>
                     {isActive && (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="ml-auto text-gray-400">
-                        <polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="1.5"
-                          strokeLinecap="round" strokeLinejoin="round" />
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-gray-400 shrink-0">
+                        <polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
                   </button>
@@ -133,12 +164,6 @@ export function StatusChanger({
             </div>
           </div>
         </>
-      )}
-
-      {error && (
-        <p className="absolute top-10 right-0 text-[11px] text-red-500 bg-white border border-red-100 rounded-lg px-3 py-1.5 shadow-sm whitespace-nowrap z-50">
-          {error}
-        </p>
       )}
     </div>
   );

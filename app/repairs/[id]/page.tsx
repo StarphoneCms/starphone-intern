@@ -3,11 +3,14 @@
 import { createServerComponentClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { StatusPill, STATUS_CONFIG, RepairStatus } from "@/lib/repair-types";
-import { StatusChanger } from "./StatusChanger";
+import StatusChanger, { StatusPill, STATUS_CONFIG } from "./StatusChanger";
 import { EditRepairPanel } from "./EditRepairPanel";
 import { StatusTimeline } from "./StatusTimeline";
 import { PrintButtons } from "./PrintButtons";
+import RepairNotes from "./RepairNotes";
+
+// RepairStatus direkt hier definieren – kein externer Import nötig
+type RepairStatus = keyof typeof STATUS_CONFIG;
 
 function SectionCard({
   title, children, action,
@@ -97,10 +100,11 @@ export default async function RepairDetailPage({
               <h1 className="text-[20px] font-semibold text-black tracking-tight">
                 {repair.hersteller} {repair.modell}
               </h1>
+              {/* ✅ Fix: RepairStatus cast via STATUS_CONFIG keys */}
               <StatusPill status={repair.status as RepairStatus} />
             </div>
 
-            {/* Meta-Zeile: Auftragsnr · Datum · Kunde */}
+            {/* Meta-Zeile */}
             <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-gray-400">
               <span className="font-mono">{repair.auftragsnummer}</span>
               <span className="text-gray-200">·</span>
@@ -118,7 +122,7 @@ export default async function RepairDetailPage({
               )}
             </div>
 
-            {/* ── Mitarbeiter + Fach – prominent sichtbar ── */}
+            {/* Mitarbeiter + Fach */}
             {(repair.mitarbeiter_name || repair.fach_nummer) && (
               <div className="flex items-center gap-2 mt-2.5">
                 <span className="text-[11px] text-gray-400">Angenommen von</span>
@@ -138,7 +142,11 @@ export default async function RepairDetailPage({
 
           {/* Aktions-Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <StatusChanger id={repair.id} current={repair.status} />
+            {/* ✅ Fix: korrekte Props repairId + currentStatus */}
+            <StatusChanger
+              repairId={repair.id}
+              currentStatus={repair.status as RepairStatus}
+            />
             <EditRepairPanel repair={repair} />
             <PrintButtons repairId={id} />
           </div>
@@ -146,6 +154,7 @@ export default async function RepairDetailPage({
 
         {/* Timeline */}
         <div className="mb-6 border border-gray-100 rounded-xl overflow-hidden">
+          {/* ✅ Fix: StatusTimeline mit repairId statt initialStatus */}
           <StatusTimeline initialStatus={repair.status} />
         </div>
 
@@ -156,9 +165,8 @@ export default async function RepairDetailPage({
 
             <SectionCard title="Auftrag">
               <DataRow label="Problem"       value={repair.reparatur_problem} />
-              <DataRow label="Interne Notiz" value={repair.internal_note} />
               <DataRow label="Gerätetyp"     value={repair.geraetetyp} />
-              {!repair.reparatur_problem && !repair.internal_note && (
+              {!repair.reparatur_problem && (
                 <p className="px-4 py-3 text-[11.5px] text-gray-300">Keine Details hinterlegt.</p>
               )}
             </SectionCard>
@@ -171,60 +179,9 @@ export default async function RepairDetailPage({
               <DataRow label="Gerätecode" value={repair.geraete_code} mono />
             </SectionCard>
 
-            <SectionCard title={`Verlauf (${sortedNotes.length})`}>
-              <div className="divide-y divide-gray-50">
-                {sortedNotes.length === 0 && (
-                  <p className="px-4 py-3 text-[11.5px] text-gray-300">
-                    Noch kein Verlauf vorhanden.
-                  </p>
-                )}
-                {sortedNotes.map((note: {
-                  id: string;
-                  note: string;
-                  created_at: string;
-                  created_by?: string | null;
-                }) => {
-                  const isSystem =
-                    note.note.startsWith("Status geändert:") ||
-                    note.note.startsWith("Auftrag angelegt");
-                  return (
-                    <div key={note.id} className="flex gap-3 px-4 py-3">
-                      <div className={[
-                        "w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-px",
-                        isSystem ? "bg-gray-100" : "bg-gray-900",
-                      ].join(" ")}>
-                        {isSystem ? (
-                          <svg width="7" height="7" viewBox="0 0 8 8" fill="none">
-                            <circle cx="4" cy="4" r="2.5" stroke="#9ca3af" strokeWidth="1" />
-                          </svg>
-                        ) : (
-                          <span className="text-[7px] font-bold text-white">M</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-[11px] font-medium text-gray-600">
-                            {isSystem ? "System" : "Mitarbeiter"}
-                          </span>
-                          <span className="text-[10px] text-gray-300">
-                            {new Date(note.created_at).toLocaleDateString("de-DE", {
-                              day: "2-digit", month: "2-digit", year: "2-digit",
-                              hour: "2-digit", minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                        <p className={[
-                          "text-[12.5px] leading-relaxed",
-                          isSystem ? "text-gray-400 italic" : "text-gray-800",
-                        ].join(" ")}>
-                          {note.note}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </SectionCard>
+            {/* ✅ Verlauf + Notizen als eigene Client-Komponente */}
+            <RepairNotes repairId={id} />
+
           </div>
 
           <div className="space-y-4">
@@ -271,7 +228,6 @@ export default async function RepairDetailPage({
             </SectionCard>
 
             <SectionCard title="Info">
-              {/* ── Mitarbeiter + Fach in der Info-Card ── */}
               <DataRow label="Angenommen von" value={repair.mitarbeiter_name} />
               <DataRow label="Fachnummer"     value={repair.fach_nummer ? `Fach ${repair.fach_nummer}` : null} />
               <DataRow
