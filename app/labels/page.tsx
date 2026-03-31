@@ -1,8 +1,6 @@
 'use client';
 
 // Pfad: src/app/labels/page.tsx
-// Canvas-basiertes Etikett-Rendering bei 300 DPI
-// SLP-TX223: 300 DPI = 11.811 dots/mm
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/browser';
@@ -26,15 +24,13 @@ type LabelTemplate = {
 
 type PrintSize = 'small' | 'large';
 
-// 300 DPI = 11.811 dots per mm
-const DPM = 11.811; // dots per mm
-const mm  = (v: number) => Math.round(v * DPM);
+// 300 DPI = 11.811 dots/mm
+const DPM = 11.811;
+const mm = (v: number) => Math.round(v * DPM);
 
-// Etiketten-Dimensionen in mm
-const SMALL_W = 50;  // mm
-const SMALL_H = 30;  // mm
-const LARGE_W = 60;  // mm
-const LARGE_H = 90;  // mm
+// Etikett-Dimensionen
+const SMALL_W = 50; const SMALL_H = 30;   // mm Querformat
+const LARGE_W = 60; const LARGE_H = 90;   // mm Hochformat
 
 const GARANTIE_OPTIONS = ['Keine', '3 Monate', '6 Monate', '12 Monate', '24 Monate'];
 const ZUSTAND_OPTIONS  = ['Neu', 'Aussteller', 'Generalüberholt'];
@@ -46,118 +42,131 @@ const ZUSTAND_STYLES: Record<string, string> = {
 const inputClass = "w-full h-9 px-3 text-[12.5px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300";
 const labelClass = "block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5";
 
-// ─── Canvas: Klein 50×30mm (Querformat) ──────────────────────────────────────
-// Layout: Links Label/Wert Tabelle, Rechts Preis in Rahmen
+// ─── Klein 50×30mm Querformat ─────────────────────────────────────────────────
+// Layout (von oben, alles links, Preis rechts unten):
+//   Links:  Tabelle (Modell/GB/Sim/Garantie/Zustand) + STARPHONE + IMEI
+//   Rechts: Preis in Rahmen (mittig vertikal)
 
 function drawSmallLabel(canvas: HTMLCanvasElement, t: LabelTemplate) {
-  const W = mm(SMALL_W);
-  const H = mm(SMALL_H);
+  const W = mm(SMALL_W); // 590px
+  const H = mm(SMALL_H); // 354px
   canvas.width  = W;
   canvas.height = H;
-
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#000';
 
-  const PAD  = mm(1.5);
+  const PAD   = mm(1.8);
   const preis = t.verkaufspreis != null ? `${t.verkaufspreis.toFixed(0)}.–` : '–';
 
-  // Preis-Box rechts
-  const boxW = mm(18);
-  const boxH = mm(11);
-  const boxX = W - PAD - boxW;
-  const boxY = H - PAD - boxH;
+  // Preis-Box: rechts, vertikal zentriert
+  const boxW  = mm(20);
+  const boxH  = mm(13);
+  const boxX  = W - PAD - boxW;
+  const boxY  = (H - boxH) / 2;
+  ctx.lineWidth   = mm(0.5);
   ctx.strokeStyle = '#000';
-  ctx.lineWidth = mm(0.45);
   ctx.strokeRect(boxX, boxY, boxW, boxH);
-  ctx.font = `bold ${mm(7)}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.fillStyle      = '#000';
+  ctx.font           = `bold ${mm(8)}px Arial`;
+  ctx.textAlign      = 'center';
+  ctx.textBaseline   = 'middle';
   ctx.fillText(preis, boxX + boxW / 2, boxY + boxH / 2, boxW - mm(1));
 
   // Linke Spalte: Tabelle
   const rows = ([
-    ['Modell:',    `${t.hersteller} ${t.modell}`],
-    ['GB:',        t.speicher],
-    ['Sim:',       t.sim],
-    ['Garantie:',  t.garantie],
-    ['Zustand:',   t.zustand],
+    ['Modell:',   `${t.hersteller} ${t.modell}`],
+    ['GB:',       t.speicher],
+    ['Sim:',      t.sim],
+    ['Garantie:', t.garantie],
+    ['Zustand:',  t.zustand],
   ] as [string, string | null][]).filter((r): r is [string, string] => !!r[1]);
 
-  const rowH   = mm(4.2);
-  const lblW   = mm(13);
-  const startY = PAD + mm(1);
+  const rowH  = mm(3.8);
+  const lblW  = mm(14);
+  const maxX  = boxX - mm(1);  // Tabelle endet links von der Preis-Box
+  let   y     = PAD + mm(1.5);
 
-  ctx.textAlign = 'left';
-  rows.forEach(([lbl, val], i) => {
-    const y = startY + i * rowH;
-    ctx.font = `${mm(3.2)}px Arial`;
-    ctx.fillText(lbl, PAD, y);
-    ctx.font = `bold ${mm(3.2)}px Arial`;
-    ctx.fillText(val, PAD + lblW, y, boxX - PAD - lblW - mm(1));
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  rows.forEach(([lbl, val]) => {
+    const lineY = y + rowH * 0.75;
+    ctx.font      = `${mm(2.9)}px Arial`;
+    ctx.fillStyle = '#555';
+    ctx.fillText(lbl, PAD, lineY);
+    ctx.font      = `bold ${mm(2.9)}px Arial`;
+    ctx.fillStyle = '#000';
+    ctx.fillText(val, PAD + lblW, lineY, maxX - PAD - lblW);
+    y += rowH;
   });
 
-  // STARPHONE unten links
-  ctx.font = `${mm(2.5)}px Arial`;
-  ctx.letterSpacing = `${mm(0.4)}px`;
-  ctx.fillText('S T A R P H O N E', PAD, H - PAD - mm(3.5));
+  // STARPHONE + IMEI unten links
+  ctx.font      = `${mm(2.2)}px Arial`;
+  ctx.fillStyle = '#444';
+  ctx.letterSpacing = `${mm(0.3)}px`;
+  ctx.fillText('S T A R P H O N E', PAD, H - PAD - mm(3.2));
   ctx.letterSpacing = '0px';
 
   if (t.imei) {
-    ctx.font = `${mm(2.2)}px Arial`;
-    ctx.fillStyle = '#444';
+    ctx.font      = `${mm(1.9)}px Arial`;
+    ctx.fillStyle = '#777';
     ctx.fillText(t.imei, PAD, H - PAD - mm(0.8));
-    ctx.fillStyle = '#000';
   }
 }
 
-// ─── Canvas: Groß 60×90mm (Hochformat) ───────────────────────────────────────
-// Layout wie LabelArtist: Header, Dashes, Tabelle, Dashes, Zustand/Garantie, Footer
+// ─── Groß 60×90mm Hochformat ──────────────────────────────────────────────────
+// Layout von oben nach unten:
+//   STARPHONE® Header
+//   --- Dashed Line ---
+//   Tabelle (MARKE/MODELL/KAMERA/RAM/SPEICHER/SIM/AKKU)
+//   --- Dashed Line ---
+//   Zustand + Garantie (kursiv)
+//   [Preis-Box, volle Breite]
 
 function drawLargeLabel(canvas: HTMLCanvasElement, t: LabelTemplate) {
-  const W = mm(LARGE_W);
-  const H = mm(LARGE_H);
+  const W = mm(LARGE_W); // 709px
+  const H = mm(LARGE_H); // 1063px
   canvas.width  = W;
   canvas.height = H;
-
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#000';
 
   const PAD = mm(2.5);
-  let   y   = PAD;
 
-  // STARPHONE® Header
-  ctx.font      = `bold ${mm(5)}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.letterSpacing = `${mm(0.6)}px`;
-  ctx.fillText('STARPHONE', W / 2, y + mm(4));
-  ctx.letterSpacing = '0px';
-  // ® kleiner hochgestellt
-  ctx.font = `bold ${mm(3)}px Arial`;
-  ctx.fillText('®', W / 2 + mm(18), y + mm(2.5));
-  y += mm(7);
-
-  // Gestrichelte Linie
+  // Gestrichelte Linie helper
   function dashLine(yy: number) {
+    ctx.save();
     ctx.setLineDash([mm(1.5), mm(1.2)]);
-    ctx.lineWidth = mm(0.35);
+    ctx.lineWidth = mm(0.4);
+    ctx.strokeStyle = '#000';
     ctx.beginPath();
-    ctx.moveTo(PAD, yy);
-    ctx.lineTo(W - PAD, yy);
+    ctx.moveTo(PAD, yy); ctx.lineTo(W - PAD, yy);
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.restore();
   }
-  dashLine(y);
-  y += mm(2.5);
 
-  // Tabelle
+  // ── STARPHONE® Header ──
+  ctx.font         = `bold ${mm(5.5)}px Arial`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.letterSpacing = `${mm(0.7)}px`;
+  ctx.fillText('STARPHONE', W / 2 - mm(3), PAD + mm(5.5));
+  ctx.letterSpacing = '0px';
+  ctx.font = `bold ${mm(3.2)}px Arial`;
+  ctx.fillText('®', W / 2 + mm(16), PAD + mm(3.5));
+
+  let y = PAD + mm(8);
+  dashLine(y);
+  y += mm(3);
+
+  // ── Haupttabelle ──
   const rows = ([
     ['MARKE:',    t.hersteller?.toUpperCase()],
     ['MODELL:',   t.modell?.toUpperCase()],
-    ['KAMERA:',   t.megapixel ? `${t.megapixel}MP` : null],
+    ['KAMERA:',   t.megapixel  ? `${t.megapixel}MP`  : null],
     ['RAM:',      t.ram],
     ['SPEICHER:', t.speicher],
     ['SIM:',      t.sim],
@@ -165,138 +174,87 @@ function drawLargeLabel(canvas: HTMLCanvasElement, t: LabelTemplate) {
   ] as [string, string | null][]).filter((r): r is [string, string] => !!r[1]);
 
   const rowH = mm(7.5);
-  const lblW = mm(22);
-  ctx.textAlign = 'left';
+  const lblW = mm(23);
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'alphabetic';
 
   rows.forEach(([lbl, val]) => {
-    ctx.font = `bold ${mm(4)}px Arial`;
-    ctx.letterSpacing = `${mm(0.1)}px`;
-    ctx.fillText(lbl, PAD, y + mm(3));
-    ctx.fillText(val, PAD + lblW, y + mm(3), W - PAD - lblW - PAD);
+    ctx.font = `bold ${mm(4.2)}px Arial`;
+    ctx.letterSpacing = `${mm(0.08)}px`;
+    ctx.fillText(lbl, PAD, y + mm(4.2));
+    ctx.fillText(val,  PAD + lblW, y + mm(4.2), W - PAD * 2 - lblW);
     ctx.letterSpacing = '0px';
     y += rowH;
   });
 
-  y += mm(1);
+  y += mm(2);
   dashLine(y);
-  y += mm(3);
+  y += mm(3.5);
 
-  // Zustand + Garantie (kursiv)
+  // ── Zustand + Garantie ──
   const bottomRows = ([
-    ['Zustand:', t.zustand],
+    ['Zustand:',  t.zustand],
     ['Garantie:', t.garantie],
   ] as [string, string | null][]).filter((r): r is [string, string] => !!r[1]);
 
   bottomRows.forEach(([lbl, val]) => {
-    ctx.font = `italic ${mm(3.8)}px Arial`;
+    ctx.font      = `italic ${mm(4.5)}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(lbl, PAD, y + mm(3));
-    ctx.fillText(val, PAD + lblW, y + mm(3));
-    y += mm(6.5);
+    ctx.fillText(lbl, PAD,        y + mm(4));
+    ctx.fillText(val, PAD + lblW, y + mm(4));
+    y += mm(7.5);
   });
 
-  // Footer: Satisfaction Kreis + Preis-Box
-  const footerY = H - PAD - mm(18);
-  const circleR = mm(7);
-  const circleX = PAD + circleR;
-  const circleY = footerY + mm(9);
+  y += mm(2);
 
-  // Kreis
-  ctx.beginPath();
-  ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
-  ctx.lineWidth = mm(0.4);
-  ctx.stroke();
-
-  ctx.textAlign = 'center';
-  ctx.font = `bold ${mm(2.2)}px Arial`;
-  ctx.fillText('SATISFACTION', circleX, circleY - mm(3.5));
-  ctx.font = `bold ${mm(6)}px Arial`;
-  ctx.fillText('100%', circleX, circleY + mm(1.5));
-  ctx.font = `bold ${mm(2.2)}px Arial`;
-  ctx.fillText('GUARANTEED', circleX, circleY + mm(5.5));
-
-  // Preis-Box rechts
-  const preis  = t.verkaufspreis != null ? `${t.verkaufspreis.toFixed(0)}.–` : '–';
-  const boxX   = circleX + circleR + mm(3);
-  const boxW   = W - PAD - boxX;
-  const boxH   = mm(16);
-  const boxY   = footerY + mm(1);
+  // ── Preis-Box: von y bis zum Ende ──
+  const boxH = H - y - PAD;
+  ctx.lineWidth   = mm(0.7);
   ctx.strokeStyle = '#000';
-  ctx.lineWidth   = mm(0.6);
-  ctx.strokeRect(boxX, boxY, boxW, boxH);
+  ctx.strokeRect(PAD, y, W - PAD * 2, boxH);
 
-  ctx.font           = `bold ${mm(10)}px Arial`;
+  const preis = t.verkaufspreis != null ? `${t.verkaufspreis.toFixed(0)}.–` : '–';
+  // Schriftgröße dynamisch: maximal mm(13), aber skaliert wenn Box klein
+  const fontSize = Math.min(mm(13), boxH * 0.55);
+  ctx.font           = `bold ${fontSize}px Arial`;
   ctx.textAlign      = 'center';
   ctx.textBaseline   = 'middle';
-  ctx.fillText(preis, boxX + boxW / 2, boxY + boxH / 2, boxW - mm(2));
+  ctx.fillStyle      = '#000';
+  ctx.fillText(preis, W / 2, y + boxH / 2, W - PAD * 2 - mm(4));
 }
 
-// ─── Print Helper ─────────────────────────────────────────────────────────────
+// ─── Print ────────────────────────────────────────────────────────────────────
 
 function printCanvas(canvases: HTMLCanvasElement[], size: PrintSize) {
   const imgs = canvases.map(c => c.toDataURL('image/png'));
-  const W    = size === 'small' ? SMALL_W : LARGE_W;
-  const H    = size === 'small' ? SMALL_H : LARGE_H;
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Etiketten</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size: ${W}mm ${H}mm; margin: 0; }
-  body { background: white; }
-  img {
-    display: block;
-    width: ${W}mm;
-    height: ${H}mm;
-    page-break-after: always;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-</style>
-</head>
-<body>
-  ${imgs.map(src => `<img src="${src}" />`).join('\n')}
-  <script>
-    window.onload = function() { window.print(); setTimeout(() => window.close(), 1500); };
-  <\/script>
-</body>
-</html>`;
-
+  const W = size === 'small' ? SMALL_W : LARGE_W;
+  const H = size === 'small' ? SMALL_H : LARGE_H;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Etiketten</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}@page{size:${W}mm ${H}mm;margin:0;}body{background:white;}
+img{display:block;width:${W}mm;height:${H}mm;page-break-after:always;-webkit-print-color-adjust:exact;print-color-adjust:exact;}</style>
+</head><body>${imgs.map(s => `<img src="${s}"/>`).join('')}
+<script>window.onload=function(){window.print();setTimeout(()=>window.close(),1500);}<\/script></body></html>`;
   const win = window.open('', '_blank');
-  if (!win) { alert('Popup blockiert – bitte Popups erlauben.'); return; }
+  if (!win) { alert('Popup blockiert'); return; }
   win.document.write(html);
   win.document.close();
 }
 
-// ─── Label Preview Component ──────────────────────────────────────────────────
+// ─── Vorschau ─────────────────────────────────────────────────────────────────
 
 function LabelPreview({ template, size }: { template: LabelTemplate; size: PrintSize }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (!canvasRef.current) return;
-    if (size === 'small') drawSmallLabel(canvasRef.current, template);
-    else                  drawLargeLabel(canvasRef.current, template);
+    if (!ref.current) return;
+    if (size === 'small') drawSmallLabel(ref.current, template);
+    else                  drawLargeLabel(ref.current, template);
   }, [template, size]);
-
-  const aspect = size === 'small'
-    ? `${SMALL_W / SMALL_H}`
-    : `${LARGE_W / LARGE_H}`;
-
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '100%',
-        aspectRatio: aspect,
-        border: '1px solid #e5e7eb',
-        borderRadius: 4,
-        imageRendering: 'pixelated',
-      }}
-    />
+    <canvas ref={ref} style={{
+      width: '100%',
+      aspectRatio: size === 'small' ? `${SMALL_W}/${SMALL_H}` : `${LARGE_W}/${LARGE_H}`,
+      border: '1px solid #e5e7eb', borderRadius: 4, imageRendering: 'pixelated',
+    }} />
   );
 }
 
@@ -306,53 +264,34 @@ function TemplateModal({ item, onClose, onSave }: {
   item: Partial<LabelTemplate> | null; onClose: () => void; onSave: () => void;
 }) {
   const supabase = createClient();
-  const isNew    = !item?.id;
+  const isNew = !item?.id;
   const [form, setForm] = useState({
-    hersteller:    item?.hersteller    ?? '',
-    modell:        item?.modell        ?? '',
-    speicher:      item?.speicher      ?? '',
-    ram:           item?.ram           ?? '',
-    megapixel:     item?.megapixel     ?? '',
-    sim:           item?.sim           ?? '',
-    akku:          item?.akku          ?? '',
-    garantie:      item?.garantie      ?? 'Keine',
-    farbe:         item?.farbe         ?? '',
-    zustand:       item?.zustand       ?? 'Neu',
-    verkaufspreis: item?.verkaufspreis?.toString() ?? '',
-    imei:          item?.imei          ?? '',
+    hersteller: item?.hersteller ?? '', modell: item?.modell ?? '',
+    speicher: item?.speicher ?? '', ram: item?.ram ?? '',
+    megapixel: item?.megapixel ?? '', sim: item?.sim ?? '',
+    akku: item?.akku ?? '', garantie: item?.garantie ?? 'Keine',
+    farbe: item?.farbe ?? '', zustand: item?.zustand ?? 'Neu',
+    verkaufspreis: item?.verkaufspreis?.toString() ?? '', imei: item?.imei ?? '',
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState('');
+  const [error, setError] = useState('');
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   async function handleSave() {
-    if (!form.hersteller.trim() || !form.modell.trim()) {
-      setError('Hersteller und Modell sind Pflichtfelder.'); return;
-    }
+    if (!form.hersteller.trim() || !form.modell.trim()) { setError('Hersteller und Modell sind Pflichtfelder.'); return; }
     setSaving(true); setError('');
     try {
-      const payload = {
-        hersteller:    form.hersteller,
-        modell:        form.modell,
-        speicher:      form.speicher   || null,
-        ram:           form.ram        || null,
-        megapixel:     form.megapixel  || null,
-        sim:           form.sim        || null,
-        akku:          form.akku       || null,
-        garantie:      form.garantie === 'Keine' ? null : form.garantie,
-        farbe:         form.farbe      || null,
-        zustand:       form.zustand,
+      const p = {
+        hersteller: form.hersteller, modell: form.modell,
+        speicher: form.speicher || null, ram: form.ram || null,
+        megapixel: form.megapixel || null, sim: form.sim || null,
+        akku: form.akku || null, garantie: form.garantie === 'Keine' ? null : form.garantie,
+        farbe: form.farbe || null, zustand: form.zustand,
         verkaufspreis: form.verkaufspreis !== '' ? parseFloat(form.verkaufspreis) : null,
-        imei:          form.imei       || null,
+        imei: form.imei || null,
       };
-      if (isNew) {
-        const { error: err } = await supabase.from('label_templates').insert([payload]);
-        if (err) throw err;
-      } else {
-        const { error: err } = await supabase.from('label_templates')
-          .update({ ...payload, updated_at: new Date().toISOString() }).eq('id', item!.id!);
-        if (err) throw err;
-      }
+      if (isNew) { const { error: e } = await supabase.from('label_templates').insert([p]); if (e) throw e; }
+      else { const { error: e } = await supabase.from('label_templates').update({ ...p, updated_at: new Date().toISOString() }).eq('id', item!.id!); if (e) throw e; }
       onSave(); onClose();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Fehler'); }
     finally { setSaving(false); }
@@ -365,10 +304,7 @@ function TemplateModal({ item, onClose, onSave }: {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-[15px] font-semibold text-black">{isNew ? 'Neue Vorlage' : 'Vorlage bearbeiten'}</h2>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
         </div>
         <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
@@ -390,36 +326,29 @@ function TemplateModal({ item, onClose, onSave }: {
             <div><label className={labelClass}>Farbe</label><input value={form.farbe} onChange={e => set('farbe', e.target.value)} placeholder="Blau" className={inputClass} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Garantie</label>
+            <div><label className={labelClass}>Garantie</label>
               <select value={form.garantie} onChange={e => set('garantie', e.target.value)} className={inputClass + ' cursor-pointer'}>
                 {GARANTIE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div><label className={labelClass}>IMEI</label><input value={form.imei} onChange={e => set('imei', e.target.value)} placeholder="352590922889112" className={inputClass + ' font-mono'} /></div>
           </div>
-          <div>
-            <label className={labelClass}>Zustand</label>
+          <div><label className={labelClass}>Zustand</label>
             <div className="flex gap-2">
               {ZUSTAND_OPTIONS.map(z => (
                 <button key={z} type="button" onClick={() => set('zustand', z)}
                   className={['flex-1 h-9 rounded-lg border text-[12px] font-medium transition-colors',
-                    form.zustand === z ? ZUSTAND_STYLES[z] : 'border-gray-200 text-gray-500 hover:bg-gray-50'].join(' ')}>
-                  {z}
-                </button>
+                    form.zustand === z ? ZUSTAND_STYLES[z] : 'border-gray-200 text-gray-500 hover:bg-gray-50'].join(' ')}>{z}</button>
               ))}
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Verkaufspreis (€)</label>
-            <input type="number" min="0" step="1" value={form.verkaufspreis}
-              onChange={e => set('verkaufspreis', e.target.value)} placeholder="1279" className={inputClass} />
+          <div><label className={labelClass}>Verkaufspreis (€)</label>
+            <input type="number" min="0" step="1" value={form.verkaufspreis} onChange={e => set('verkaufspreis', e.target.value)} placeholder="1279" className={inputClass} />
           </div>
         </div>
         <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-gray-50/60">
           <button onClick={onClose} className="h-8 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-500 hover:bg-white">Abbrechen</button>
-          <button onClick={handleSave} disabled={saving}
-            className="h-8 px-5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 disabled:opacity-40">
+          <button onClick={handleSave} disabled={saving} className="h-8 px-5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 disabled:opacity-40">
             {saving ? 'Speichern…' : isNew ? 'Erstellen' : 'Speichern'}
           </button>
         </div>
@@ -431,18 +360,15 @@ function TemplateModal({ item, onClose, onSave }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LabelsPage() {
-  const supabase  = createClient();
-  const [templates, setTemplates]   = useState<LabelTemplate[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [modalItem, setModalItem]   = useState<Partial<LabelTemplate> | null | undefined>(undefined);
-  const [selected, setSelected]     = useState<Set<string>>(new Set());
-  const [printSize, setPrintSize]   = useState<PrintSize>('large');
+  const supabase = createClient();
+  const [templates, setTemplates] = useState<LabelTemplate[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [modalItem, setModalItem] = useState<Partial<LabelTemplate> | null | undefined>(undefined);
+  const [selected, setSelected]   = useState<Set<string>>(new Set());
+  const [printSize, setPrintSize] = useState<PrintSize>('large');
   const [printCount, setPrintCount] = useState(1);
   const [previewTemplate, setPreviewTemplate] = useState<LabelTemplate | null>(null);
-  const [deleting, setDeleting]     = useState<string | null>(null);
-
-  // Hidden canvas pool für Druck
-  const canvasPoolRef = useRef<HTMLCanvasElement[]>([]);
+  const [deleting, setDeleting]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -456,7 +382,7 @@ export default function LabelsPage() {
   const toggleSelect = (id: string) =>
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allSelected = templates.length > 0 && selected.size === templates.length;
-  const toggleAll   = () => allSelected ? setSelected(new Set()) : setSelected(new Set(templates.map(t => t.id)));
+  const toggleAll = () => allSelected ? setSelected(new Set()) : setSelected(new Set(templates.map(t => t.id)));
 
   async function handleDelete(id: string) {
     if (!confirm('Vorlage wirklich löschen?')) return;
@@ -466,20 +392,17 @@ export default function LabelsPage() {
   }
 
   function handlePrint() {
-    const selectedTemplates = templates.filter(t => selected.has(t.id));
-    if (!selectedTemplates.length) return;
-
-    // Canvas für jede Vorlage × Anzahl erstellen
+    const sel = templates.filter(t => selected.has(t.id));
+    if (!sel.length) return;
     const canvases: HTMLCanvasElement[] = [];
-    selectedTemplates.forEach(t => {
+    sel.forEach(t => {
       for (let i = 0; i < printCount; i++) {
-        const canvas = document.createElement('canvas');
-        if (printSize === 'small') drawSmallLabel(canvas, t);
-        else                       drawLargeLabel(canvas, t);
-        canvases.push(canvas);
+        const c = document.createElement('canvas');
+        if (printSize === 'small') drawSmallLabel(c, t);
+        else drawLargeLabel(c, t);
+        canvases.push(c);
       }
     });
-
     printCanvas(canvases, printSize);
   }
 
@@ -487,96 +410,68 @@ export default function LabelsPage() {
     <main className="min-h-screen bg-white">
       <div className="max-w-[1400px] mx-auto px-5 py-7">
 
-        {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-[20px] font-semibold text-black tracking-tight">Etikettendruck</h1>
-            <p className="text-[12px] text-gray-400 mt-0.5">{templates.length} Vorlagen · 300 DPI Canvas-Rendering</p>
+            <p className="text-[12px] text-gray-400 mt-0.5">{templates.length} Vorlagen · 300 DPI</p>
           </div>
-          <button onClick={() => setModalItem({})}
-            className="flex items-center gap-1.5 h-8 px-3.5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <line x1="5" y1="1" x2="5" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="1" y1="5" x2="9" y2="5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+          <button onClick={() => setModalItem({})} className="flex items-center gap-1.5 h-8 px-3.5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="5" y1="1" x2="5" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/><line x1="1" y1="5" x2="9" y2="5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
             Vorlage erstellen
           </button>
         </div>
 
-        {/* Druck-Toolbar */}
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-3 px-4 py-3 mb-5 rounded-xl bg-gray-50 border border-gray-100">
             <span className="text-[12px] font-medium text-gray-700">{selected.size} ausgewählt</span>
-
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-[11.5px]">
-              <button onClick={() => setPrintSize('small')}
-                className={['px-3 py-1.5 font-medium transition-colors',
-                  printSize === 'small' ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100'].join(' ')}>
-                Klein (50×30mm)
-              </button>
-              <button onClick={() => setPrintSize('large')}
-                className={['px-3 py-1.5 font-medium transition-colors border-l border-gray-200',
-                  printSize === 'large' ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100'].join(' ')}>
-                Groß (60×90mm)
-              </button>
+              <button onClick={() => setPrintSize('small')} className={['px-3 py-1.5 font-medium transition-colors', printSize === 'small' ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100'].join(' ')}>Klein (50×30mm)</button>
+              <button onClick={() => setPrintSize('large')} className={['px-3 py-1.5 font-medium transition-colors border-l border-gray-200', printSize === 'large' ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100'].join(' ')}>Groß (60×90mm)</button>
             </div>
-
             <div className="flex items-center gap-2">
               <span className="text-[11.5px] text-gray-500">Anzahl:</span>
               <div className="flex items-center gap-1">
-                <button onClick={() => setPrintCount(c => Math.max(1, c - 1))}
-                  className="w-7 h-7 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 flex items-center justify-center">−</button>
+                <button onClick={() => setPrintCount(c => Math.max(1, c - 1))} className="w-7 h-7 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 flex items-center justify-center">−</button>
                 <span className="w-6 text-center text-[13px] font-medium">{printCount}</span>
-                <button onClick={() => setPrintCount(c => Math.min(10, c + 1))}
-                  className="w-7 h-7 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 flex items-center justify-center">+</button>
+                <button onClick={() => setPrintCount(c => Math.min(10, c + 1))} className="w-7 h-7 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 flex items-center justify-center">+</button>
               </div>
             </div>
-
-            <button onClick={handlePrint}
-              className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 ml-auto">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <rect x="2" y="3" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M4 3V1.5H8V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                <line x1="4" y1="7" x2="8" y2="7" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-              </svg>
+            <button onClick={handlePrint} className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 ml-auto">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2" y="3" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M4 3V1.5H8V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><line x1="4" y1="7" x2="8" y2="7" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
               Drucken
             </button>
           </div>
         )}
 
-        {/* Vorschau + Tabelle nebeneinander wenn Vorlage ausgewählt */}
+        <div className="flex items-start gap-2.5 px-4 py-3 mb-5 rounded-xl bg-blue-50 border border-blue-100 text-[12px] text-blue-700">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 mt-0.5"><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2"/><line x1="7" y1="4" x2="7" y2="7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="7" cy="9.5" r="0.6" fill="currentColor"/></svg>
+          <p>Im Druckdialog: Ränder = <strong>Keine</strong>, Skalierung = <strong>100%</strong>, Format = <strong>50×30mm</strong> oder <strong>60×90mm</strong>.</p>
+        </div>
+
         <div className={['flex gap-5', previewTemplate ? 'items-start' : ''].join(' ')}>
 
-          {/* Vorschau */}
           {previewTemplate && (
             <div className="w-64 shrink-0 sticky top-20">
               <div className="rounded-xl border border-gray-100 overflow-hidden">
                 <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                   <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">Vorschau</span>
                   <div className="flex gap-1">
-                    <button onClick={() => setPrintSize('small')}
-                      className={['text-[10.5px] px-2 py-0.5 rounded border transition-colors',
-                        printSize === 'small' ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-500'].join(' ')}>
-                      Klein
-                    </button>
-                    <button onClick={() => setPrintSize('large')}
-                      className={['text-[10.5px] px-2 py-0.5 rounded border transition-colors',
-                        printSize === 'large' ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-500'].join(' ')}>
-                      Groß
-                    </button>
+                    {(['small', 'large'] as PrintSize[]).map(s => (
+                      <button key={s} onClick={() => setPrintSize(s)}
+                        className={['text-[10.5px] px-2 py-0.5 rounded border transition-colors', printSize === s ? 'bg-black text-white border-black' : 'border-gray-200 text-gray-500'].join(' ')}>
+                        {s === 'small' ? 'Klein' : 'Groß'}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="p-3 bg-white">
                   <LabelPreview template={previewTemplate} size={printSize} />
-                  <p className="text-[10px] text-gray-400 mt-2 text-center">
-                    {printSize === 'small' ? '50×30mm · Querformat' : '60×90mm · Hochformat'}
-                  </p>
+                  <p className="text-[10px] text-gray-400 mt-2 text-center">{printSize === 'small' ? '50×30mm · Querformat' : '60×90mm · Hochformat'}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Tabelle */}
           <div className="flex-1 min-w-0">
             <div className="rounded-xl border border-gray-100 overflow-hidden">
               {loading ? (
@@ -595,21 +490,19 @@ export default function LabelsPage() {
                           {allSelected && <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="#111" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </button>
                       </th>
-                      {['Hersteller', 'Modell', 'Speicher', 'RAM', 'SIM', 'Garantie', 'Zustand', 'Preis', ''].map(h => (
+                      {['Hersteller','Modell','Speicher','RAM','SIM','Garantie','Zustand','Preis',''].map(h => (
                         <th key={h} className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {templates.map(t => {
-                      const isSel = selected.has(t.id);
+                      const isSel  = selected.has(t.id);
                       const isPrev = previewTemplate?.id === t.id;
                       return (
-                        <tr key={t.id}
-                          onClick={() => { toggleSelect(t.id); setPreviewTemplate(t); }}
+                        <tr key={t.id} onClick={() => { toggleSelect(t.id); setPreviewTemplate(t); }}
                           className={['cursor-pointer transition-colors group',
-                            isPrev  ? 'bg-blue-50/40' :
-                            isSel   ? 'bg-gray-50' : 'hover:bg-gray-50/60',
+                            isPrev ? 'bg-blue-50/40' : isSel ? 'bg-gray-50' : 'hover:bg-gray-50/60',
                             deleting === t.id ? 'opacity-40' : ''].join(' ')}>
                           <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <button onClick={() => toggleSelect(t.id)} className="w-4 h-4 rounded border border-gray-300 flex items-center justify-center hover:border-gray-500">
@@ -646,20 +539,6 @@ export default function LabelsPage() {
                   </tbody>
                 </table>
               )}
-            </div>
-
-            {/* Druckhinweis */}
-            <div className="flex items-start gap-2.5 px-4 py-3 mt-4 rounded-xl bg-blue-50 border border-blue-100 text-[12px] text-blue-700">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 mt-0.5">
-                <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2"/>
-                <line x1="7" y1="4" x2="7" y2="7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <circle cx="7" cy="9.5" r="0.6" fill="currentColor"/>
-              </svg>
-              <p>
-                Im Druckdialog: Drucker = Bixolon, Ränder = <strong>Keine</strong>,
-                Format = <strong>50×30mm</strong> oder <strong>60×90mm</strong>,
-                Skalierung = <strong>100%</strong> (nicht anpassen).
-              </p>
             </div>
           </div>
         </div>
