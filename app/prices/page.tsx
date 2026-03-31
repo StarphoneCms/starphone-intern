@@ -14,6 +14,7 @@ type PriceItem = {
   id: string;
   hersteller: string;
   modell: string;
+  modellnummer: string | null;
   sort_order: number;
   kategorie: string | null;
   display_basic: number | null;
@@ -53,7 +54,7 @@ type PriceItem = {
   face_id: number | null;
 };
 
-type Selection = { modell: string; hersteller: string; field: string; label: string; preis: number };
+type Selection = { modell: string; hersteller: string; field: string; label: string; preis: number; menge?: number };
 type ColDef    = { key: string; label: string; group: string; note?: string; recommended?: boolean };
 
 // ─── Spalten-Definitionen ─────────────────────────────────────────────────────
@@ -233,7 +234,7 @@ function PriceCell({ value, itemId, field, label, group, hersteller, modell, sel
     <button
       onClick={() => onSelect({ modell, hersteller, field, label: `${group} ${label}`.trim(), preis: value })}
       onDoubleClick={() => setEditing(true)}
-      title={selected ? "Abwählen · Doppelklick zum Bearbeiten" : "Auswählen · "}
+      title={selected ? "Abwählen · Doppelklick zum Bearbeiten" : "Auswählen"}
       className={["w-full text-right px-2 py-2 rounded-lg text-[12.5px] font-semibold transition",
         selected
           ? "bg-black text-white"
@@ -242,6 +243,178 @@ function PriceCell({ value, itemId, field, label, group, hersteller, modell, sel
             : "text-gray-700 hover:bg-gray-100"].join(" ")}
     >
       {value.toFixed(2)} €
+    </button>
+  );
+}
+
+// ─── Linsen Cell (erste 39€, jede weitere +15€) ───────────────────────────────
+
+function LinsenCell({ basePreis, modell, hersteller, menge, onChangeMenge, onSave, itemId }: {
+  basePreis: number | null;
+  modell: string;
+  hersteller: string;
+  menge: number; // 0 = nicht ausgewählt
+  onChangeMenge: (m: number) => void;
+  onSave: (id: string, field: string, value: number | null) => void;
+  itemId: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(basePreis?.toString() ?? "");
+  useEffect(() => { setVal(basePreis?.toString() ?? ""); }, [basePreis]);
+
+  function calcPreis(linsen: number): number {
+    if (!basePreis || linsen === 0) return 0;
+    return basePreis + (linsen - 1) * 15;
+  }
+
+  function commit() {
+    setEditing(false);
+    const parsed = val.trim() === "" ? null : parseFloat(val.trim());
+    onSave(itemId, "kameralinse", parsed != null && !isNaN(parsed) ? parsed : null);
+  }
+
+  if (basePreis == null) {
+    return (
+      <button onClick={() => setEditing(true)} title="Klicken zum Eintragen"
+        className="w-full text-right px-2 py-2 text-[12px] text-gray-200 hover:text-gray-400 transition rounded-lg">
+        —
+      </button>
+    );
+  }
+
+  if (editing) {
+    return (
+      <input autoFocus type="number" step="0.01" value={val}
+        onChange={e => setVal(e.target.value)} onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === "Enter")  commit();
+          if (e.key === "Escape") { setEditing(false); setVal(basePreis?.toString() ?? ""); }
+        }}
+        className="w-[82px] rounded-lg border border-blue-300 bg-blue-50 px-2 py-1.5 text-[12px] text-gray-900 outline-none text-right font-medium"
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1 px-1 py-1">
+      {menge > 0 && (
+        <button
+          onClick={() => onChangeMenge(menge - 1)}
+          className="w-5 h-5 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 text-[13px] font-bold leading-none transition-colors flex-shrink-0"
+        >−</button>
+      )}
+      <button
+        onClick={() => menge === 0 ? onChangeMenge(1) : undefined}
+        onDoubleClick={() => setEditing(true)}
+        title={menge > 0 ? `${menge} Linse${menge > 1 ? "n" : ""} · Doppelklick zum Bearbeiten` : "Klicken zum Auswählen"}
+        className={["rounded-lg px-2 py-1.5 text-[12px] font-semibold transition min-w-[60px] text-right",
+          menge > 0 ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"].join(" ")}
+      >
+        {menge > 0
+          ? `${calcPreis(menge).toFixed(0)} €`
+          : `${basePreis.toFixed(0)} €`}
+      </button>
+      {menge > 0 && (
+        <button
+          onClick={() => onChangeMenge(menge + 1)}
+          className="w-5 h-5 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 text-[13px] font-bold leading-none transition-colors flex-shrink-0"
+        >+</button>
+      )}
+      {menge > 0 && (
+        <span className="text-[10px] text-white bg-black rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0 font-semibold">
+          {menge}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Virtueller Hersteller-Tab: Samsung wird in S/Z und A aufgeteilt
+type HerstellerTab = {
+  id: string;       // wird als aktHersteller gespeichert
+  label: string;    // Anzeigename im Tab
+  hersteller: string; // echter DB-Wert
+  modellFilter?: (modell: string) => boolean; // optionaler Modell-Filter
+};
+
+function getHerstellerTabs(prices: PriceItem[], kategorie: Kategorie): HerstellerTab[] {
+  const herstellerInKat = [...new Set(
+    prices.filter(p => (p.kategorie ?? "smartphone") === kategorie).map(p => p.hersteller)
+  )];
+
+  // Gewünschte Reihenfolge für Smartphones
+  const SMARTPHONE_ORDER = ["Apple", "Samsung S", "Samsung A", "Samsung Z", "Google", "Huawei", "Xiaomi"];
+
+  if (kategorie === "smartphone") {
+    const tabs: HerstellerTab[] = [];
+    const hasSamsung = herstellerInKat.includes("Samsung");
+
+    const candidates: HerstellerTab[] = [
+      ...herstellerInKat.filter(h => h !== "Samsung").map(h => ({ id: h, label: h, hersteller: h })),
+      ...(hasSamsung ? [
+        { id: "Samsung S", label: "Samsung S", hersteller: "Samsung", modellFilter: (m: string) => /^Galaxy\s+(S|Note)/i.test(m) },
+        { id: "Samsung A", label: "Samsung A & M", hersteller: "Samsung", modellFilter: (m: string) => /^Galaxy\s+(A|M)/i.test(m) },
+        { id: "Samsung Z", label: "Samsung Z", hersteller: "Samsung", modellFilter: (m: string) => /^Galaxy\s+Z/i.test(m) },
+      ] : []),
+    ];
+
+    // In gewünschter Reihenfolge sortieren
+    for (const key of SMARTPHONE_ORDER) {
+      const found = candidates.find(t => t.id === key);
+      if (found && prices.some(p => p.hersteller === found.hersteller && p.kategorie === "smartphone" &&
+        (!found.modellFilter || found.modellFilter(p.modell)))) {
+        tabs.push(found);
+      }
+    }
+    // Alles was nicht in SMARTPHONE_ORDER ist, hinten anhängen
+    for (const t of candidates) {
+      if (!tabs.find(x => x.id === t.id)) tabs.push(t);
+    }
+    return tabs;
+  }
+
+  // Andere Kategorien: einfach alle Hersteller
+  return herstellerInKat.map(h => ({ id: h, label: h, hersteller: h }));
+}
+
+function ModellnummerCell({ value, itemId, onSave }: {
+  value: string | null;
+  itemId: string;
+  onSave: (id: string, value: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value ?? "");
+  useEffect(() => { setVal(value ?? ""); }, [value]);
+
+  function commit() {
+    setEditing(false);
+    onSave(itemId, val.trim() || null);
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === "Enter")  commit();
+          if (e.key === "Escape") { setEditing(false); setVal(value ?? ""); }
+        }}
+        placeholder="z.B. A2342"
+        className="w-full rounded border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[11px] font-mono text-gray-700 outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      title="Klicken zum Bearbeiten"
+      className="w-full text-left text-[11px] font-mono text-gray-400 hover:text-gray-600 transition-colors truncate"
+    >
+      {value ?? <span className="text-gray-200 hover:text-gray-400 not-italic">+ Modellnr.</span>}
     </button>
   );
 }
@@ -255,9 +428,10 @@ export default function PriceListPage() {
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
   const [aktKat, setAktKat]     = useState<Kategorie>("smartphone");
-  const [aktHersteller, setAktHersteller] = useState("Apple");
+  const [aktTabId, setAktTabId] = useState("Apple");
   const [saving, setSaving]     = useState<string | null>(null);
   const [selections, setSelections] = useState<Selection[]>([]);
+  const [linsenMenge, setLinsenMenge] = useState<Record<string, number>>({}); // key: itemId
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -269,37 +443,67 @@ export default function PriceListPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const herstellerForKat = [...new Set(
-    prices.filter(p => (p.kategorie ?? "smartphone") === aktKat).map(p => p.hersteller)
-  )];
+  const herstellerTabs = getHerstellerTabs(prices, aktKat);
+  const aktTab = herstellerTabs.find(t => t.id === aktTabId) ?? herstellerTabs[0];
 
   useEffect(() => {
-    if (herstellerForKat.length > 0 && !herstellerForKat.includes(aktHersteller)) {
-      setAktHersteller(herstellerForKat[0]);
+    if (herstellerTabs.length > 0 && !herstellerTabs.find(t => t.id === aktTabId)) {
+      setAktTabId(herstellerTabs[0].id);
     }
-  }, [aktKat, herstellerForKat.join(",")]);
+  }, [aktKat, herstellerTabs.map(t => t.id).join(",")]);
 
-  const filtered = prices.filter(p =>
-    (p.kategorie ?? "smartphone") === aktKat &&
-    p.hersteller === aktHersteller &&
-    (!search || p.modell.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = prices.filter(p => {
+    if ((p.kategorie ?? "smartphone") !== aktKat) return false;
+    if (!aktTab || p.hersteller !== aktTab.hersteller) return false;
+    if (aktTab.modellFilter && !aktTab.modellFilter(p.modell)) return false;
+    if (search && !p.modell.toLowerCase().includes(search.toLowerCase()) &&
+        !(p.modellnummer ?? "").toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
-  const columns      = getColumns(aktKat, aktHersteller);
+  const columns      = getColumns(aktKat, aktTab?.hersteller ?? "Apple");
   const groupHeaders = buildGroupHeaders(columns);
 
   const activeModell         = selections[0]?.modell ?? null;
   const activeItemHersteller = selections[0]?.hersteller ?? null;
-  const totalSelected        = selections.reduce((s, r) => s + r.preis, 0);
 
   function handleSelect(sel: Selection) {
     if (activeModell && (sel.modell !== activeModell || sel.hersteller !== activeItemHersteller)) {
       if (!confirm(`Bereits ${activeModell} ausgewählt. Zu ${sel.modell} wechseln?`)) return;
-      setSelections([sel]); return;
+      setSelections([sel]);
+      setLinsenMenge({});
+      return;
     }
     setSelections(prev => {
       const exists = prev.find(s => s.field === sel.field && s.modell === sel.modell);
       return exists ? prev.filter(s => !(s.field === sel.field && s.modell === sel.modell)) : [...prev, sel];
+    });
+  }
+
+  function handleLinsenChange(itemId: string, modell: string, hersteller: string, basePreis: number, menge: number) {
+    // Wenn Menge auf 0 → aus selections entfernen
+    if (menge === 0) {
+      setLinsenMenge(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+      setSelections(prev => prev.filter(s => !(s.field === "kameralinse" && s.modell === modell)));
+      return;
+    }
+    // Wechsel zu anderem Modell?
+    if (activeModell && (modell !== activeModell || hersteller !== activeItemHersteller)) {
+      if (!confirm(`Bereits ${activeModell} ausgewählt. Zu ${modell} wechseln?`)) return;
+      setSelections([]);
+      setLinsenMenge({});
+    }
+    const gesamtPreis = basePreis + (menge - 1) * 15;
+    setLinsenMenge(prev => ({ ...prev, [itemId]: menge }));
+    setSelections(prev => {
+      const ohne = prev.filter(s => !(s.field === "kameralinse" && s.modell === modell));
+      return [...ohne, {
+        modell, hersteller,
+        field: "kameralinse",
+        label: `Kameralinse (${menge}×)`,
+        preis: gesamtPreis,
+        menge,
+      }];
     });
   }
 
@@ -310,6 +514,26 @@ export default function PriceListPage() {
     setSaving(null);
   }
 
+  async function handleSaveModellnummer(id: string, value: string | null) {
+    setSaving(id);
+    await supabase.from("price_list").update({ modellnummer: value, updated_at: new Date().toISOString() }).eq("id", id);
+    setPrices(prev => prev.map(p => p.id === id ? { ...p, modellnummer: value } : p));
+    setSaving(null);
+  }
+
+  // ── Kalkulator Logik ──────────────────────────────────────────────────────
+  const [extraRabatt, setExtraRabatt] = useState(0); // frei einstellbarer %
+
+  // Günstigste Reparatur berechnen → 25% Rabatt drauf
+  const sorted       = [...selections].sort((a, b) => a.preis - b.preis);
+  const cheapest     = sorted[0] ?? null;
+  const autoDiscount = selections.length >= 2 && cheapest
+    ? cheapest.preis * 0.25
+    : 0;
+  const subtotal     = selections.reduce((s, r) => s + r.preis, 0);
+  const extraAmt     = extraRabatt > 0 ? (subtotal - autoDiscount) * (extraRabatt / 100) : 0;
+  const total        = Math.max(0, subtotal - autoDiscount - extraAmt);
+
   function handleStartRepair() {
     if (!selections.length) return;
     const params = new URLSearchParams();
@@ -317,6 +541,52 @@ export default function PriceListPage() {
     params.set("modell", selections[0].modell);
     params.set("reparaturen", selections.map(s => `${s.field}:${s.preis}:${encodeURIComponent(s.label)}`).join(","));
     router.push(`/repairs/new?${params.toString()}`);
+  }
+
+  function handleWhatsApp() {
+    const lines = [
+      `Kostenvoranschlag – ${selections[0]?.modell ?? ""}`,
+      ``,
+      ...selections.map((s, i) => {
+        const isDisc = i === 0 && selections.length >= 2;
+        return `${s.label}: ${s.preis.toFixed(2)} €${isDisc ? ` (−${autoDiscount.toFixed(2)} € Kombi)` : ""}`;
+      }),
+      ``,
+      autoDiscount > 0 ? `Kombi-Rabatt (25%): −${autoDiscount.toFixed(2)} €` : null,
+      extraAmt > 0 ? `Zusatzrabatt (${extraRabatt}%): −${extraAmt.toFixed(2)} €` : null,
+      ``,
+      `Gesamtpreis: ${total.toFixed(2)} €`,
+      ``,
+      `Starphone Aachen – starphone.de`,
+    ].filter(l => l !== null).join("\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
+  }
+
+  function handlePrint() {
+    const w = window.open("", "_blank")!;
+    w.document.write(`
+      <html><head><title>Kostenvoranschlag</title>
+      <style>
+        body { font-family: -apple-system, sans-serif; padding: 40px; color: #111; max-width: 420px; }
+        h2 { font-size: 18px; margin-bottom: 4px; }
+        .sub { color: #888; font-size: 12px; margin-bottom: 24px; }
+        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .row.disc { color: #059669; }
+        .row.extra { color: #d97706; }
+        .total { display: flex; justify-content: space-between; padding: 12px 0; font-size: 16px; font-weight: 700; border-top: 2px solid #111; margin-top: 8px; }
+        .footer { margin-top: 32px; font-size: 11px; color: #aaa; text-align: center; }
+      </style></head><body>
+      <h2>Kostenvoranschlag</h2>
+      <div class="sub">${selections[0]?.hersteller ?? ""} ${selections[0]?.modell ?? ""} · ${new Date().toLocaleDateString("de-DE")}</div>
+      ${selections.map((s, i) => `<div class="row"><span>${s.label}</span><span>${s.preis.toFixed(2)} €</span></div>`).join("")}
+      ${autoDiscount > 0 ? `<div class="row disc"><span>Kombi-Rabatt (2. Reparatur −25%)</span><span>−${autoDiscount.toFixed(2)} €</span></div>` : ""}
+      ${extraAmt > 0 ? `<div class="row extra"><span>Zusatzrabatt (${extraRabatt}%)</span><span>−${extraAmt.toFixed(2)} €</span></div>` : ""}
+      <div class="total"><span>Gesamtpreis</span><span>${total.toFixed(2)} €</span></div>
+      <div class="footer">Starphone Aachen · starphone.de</div>
+      </body></html>
+    `);
+    w.document.close();
+    w.print();
   }
 
   return (
@@ -327,43 +597,9 @@ export default function PriceListPage() {
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
             <h1 className="text-[20px] font-semibold text-black tracking-tight">Preisliste</h1>
-            <p className="text-[12px] text-gray-400 mt-0.5">
-            </p>
+            <p className="text-[12px] text-gray-400 mt-0.5"></p>
           </div>
-          {selections.length > 0 && (
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <button onClick={handleStartRepair}
-                className="flex items-center gap-2 h-9 px-4 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M6 1v10M1 6h10" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                Reparatur starten
-                <span className="bg-white/20 rounded px-1.5 py-0.5 text-[10px]">
-                  {selections.length}× · {totalSelected.toFixed(2)} €
-                </span>
-              </button>
-              <p className="text-[11px] text-gray-400">{activeModell} · {activeItemHersteller}</p>
-            </div>
-          )}
         </div>
-
-        {/* Ausgewählte Positionen */}
-        {selections.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 px-4 py-3 mb-5 rounded-xl bg-gray-50 border border-gray-100">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mr-1">Ausgewählt:</span>
-            {selections.map(s => (
-              <button key={s.field} onClick={() => setSelections(prev => prev.filter(p => p.field !== s.field))}
-                className="flex items-center gap-1.5 h-6 px-2.5 rounded-md bg-black text-white text-[11px] font-medium hover:bg-red-500 transition-colors">
-                {s.label} · {s.preis.toFixed(2)} €
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                  <line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                  <line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                </svg>
-              </button>
-            ))}
-            <button onClick={() => setSelections([])} className="ml-auto text-[11px] text-gray-400 hover:text-gray-700">Alle abwählen</button>
-          </div>
-        )}
 
         {/* Kategorie + Hersteller Tabs */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -380,13 +616,13 @@ export default function PriceListPage() {
             ))}
           </div>
 
-          {herstellerForKat.length > 1 && (
+          {herstellerTabs.length > 1 && (
             <div className="flex gap-1 bg-gray-50 border border-gray-100 rounded-lg p-1">
-              {herstellerForKat.map(h => (
-                <button key={h} onClick={() => { setAktHersteller(h); setSearch(""); setSelections([]); }}
+              {herstellerTabs.map(tab => (
+                <button key={tab.id} onClick={() => { setAktTabId(tab.id); setSearch(""); setSelections([]); }}
                   className={["h-7 px-3.5 rounded-md text-[12px] font-medium transition-colors",
-                    aktHersteller === h ? "bg-white text-black shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-900"].join(" ")}>
-                  {h}
+                    aktTabId === tab.id ? "bg-white text-black shadow-sm border border-gray-200" : "text-gray-500 hover:text-gray-900"].join(" ")}>
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -397,98 +633,263 @@ export default function PriceListPage() {
               <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2" />
               <line x1="7.5" y1="7.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
             </svg>
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Modell suchen …"
-              className="h-8 pl-8 pr-4 text-[12px] rounded-lg border border-gray-200 bg-white placeholder-gray-300 text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300 w-48" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Modell oder Modellnr. suchen …"
+              className="h-8 pl-8 pr-4 text-[12px] rounded-lg border border-gray-200 bg-white placeholder-gray-300 text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300 w-56" />
           </div>
         </div>
 
-        {/* Tabelle */}
-        {loading ? (
-          <div className="flex items-center justify-center h-40 text-[12px] text-gray-300">Lade Preisliste …</div>
-        ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-[12px] text-gray-400">Keine Modelle gefunden.</div>
-        ) : (
-          <div className="rounded-xl border border-gray-100 overflow-x-auto">
-            <table className="border-collapse w-max min-w-full text-sm">
-              <thead>
-                {/* Gruppen-Header */}
-                <tr className="border-b border-gray-100">
-                  <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2.5 min-w-[200px] border-r border-gray-100" />
-                  {groupHeaders.map((g, i) => (
-                    <th key={i} colSpan={g.span}
-                      className={["px-3 py-2 text-[10.5px] font-semibold tracking-widest uppercase text-center border-x",
-                        GROUP_COLORS[g.label]?.header ?? "bg-gray-50 text-gray-400 border-gray-100"].join(" ")}>
-                      {g.label}
-                    </th>
-                  ))}
-                </tr>
-                {/* Spalten-Header */}
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider min-w-[200px] border-r border-gray-100">
-                    Modell
-                  </th>
-                  {columns.map(col => (
-                    <th key={col.key}
-                      className={["px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap min-w-[88px] border-x border-gray-100",
-                        col.recommended
-                          ? "bg-amber-50 text-amber-700 border-amber-100"
-                          : (GROUP_COLORS[col.group]?.cell ?? "") + " text-gray-400",
-                      ].join(" ")}>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span>{col.label}</span>
-                        {col.recommended && (
-                          <span className="text-[8px] font-semibold bg-amber-500 text-white px-1.5 py-0.5 rounded-full normal-case tracking-normal leading-none">
-                            Empfohlen
-                          </span>
-                        )}
-                        {col.note && (
-                          <span className="text-[9px] font-normal text-amber-600 normal-case tracking-normal">{col.note}</span>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((item, rowIdx) => {
-                  const isActiveModell = activeModell === item.modell && activeItemHersteller === item.hersteller;
-                  return (
-                    <tr key={item.id}
-                      className={["transition-colors",
-                        saving === item.id ? "opacity-50" : "",
-                        isActiveModell ? "bg-blue-50/40" : rowIdx % 2 !== 0 ? "bg-gray-50/50" : "",
-                        "hover:bg-gray-50"].join(" ")}>
-                      <td className={["sticky left-0 z-10 px-4 py-2.5 text-[13px] font-semibold whitespace-nowrap border-r border-gray-100",
-                        isActiveModell ? "bg-blue-50 text-blue-900" : "bg-white text-gray-900"].join(" ")}>
-                        {item.modell}
-                        {saving === item.id && <span className="ml-2 inline-block w-3 h-3 rounded-full border border-gray-400 border-t-transparent animate-spin align-middle" />}
-                      </td>
-                      {columns.map(col => {
-                        const isSelected = selections.some(s => s.field === col.key && s.modell === item.modell && s.hersteller === item.hersteller);
-                        return (
-                          <td key={col.key}
-                            className={["px-1 py-1 border-x",
-                              col.recommended
-                                ? "bg-amber-50/40 border-amber-100"
-                                : (GROUP_COLORS[col.group]?.cell ?? "") + " border-gray-50"].join(" ")}>
-                            <PriceCell
-                              value={item[col.key as keyof PriceItem] as number | null}
-                              itemId={item.id} field={col.key} label={col.label}
-                              group={col.group} hersteller={item.hersteller} modell={item.modell}
-                              selected={isSelected} recommended={col.recommended}
-                              onSelect={handleSelect} onSave={handleSave}
-                              note={col.note}
-                            />
-                          </td>
-                        );
-                      })}
+        {/* Layout: Tabelle + Kalkulator nebeneinander */}
+        <div className={["flex gap-5 items-start transition-all", selections.length > 0 ? "" : ""].join(" ")}>
+
+          {/* ── Preistabelle ── */}
+          <div className="flex-1 min-w-0">
+            {loading ? (
+              <div className="flex items-center justify-center h-40 text-[12px] text-gray-300">Lade Preisliste …</div>
+            ) : filtered.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-[12px] text-gray-400">Keine Modelle gefunden.</div>
+            ) : (
+              <div className="rounded-xl border border-gray-100 overflow-x-auto">
+                <table className="border-collapse w-max min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2.5 min-w-[220px] border-r border-gray-100" />
+                      {groupHeaders.map((g, i) => (
+                        <th key={i} colSpan={g.span}
+                          className={["px-3 py-2 text-[10.5px] font-semibold tracking-widest uppercase text-center border-x",
+                            GROUP_COLORS[g.label]?.header ?? "bg-gray-50 text-gray-400 border-gray-100"].join(" ")}>
+                          {g.label}
+                        </th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider min-w-[220px] border-r border-gray-100">
+                        Modell
+                      </th>
+                      {columns.map(col => (
+                        <th key={col.key}
+                          className={["px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap min-w-[88px] border-x border-gray-100",
+                            col.recommended
+                              ? "bg-amber-50 text-amber-700 border-amber-100"
+                              : (GROUP_COLORS[col.group]?.cell ?? "") + " text-gray-400",
+                          ].join(" ")}>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span>{col.label}</span>
+                            {col.recommended && (
+                              <span className="text-[8px] font-semibold bg-amber-500 text-white px-1.5 py-0.5 rounded-full normal-case tracking-normal leading-none">
+                                Empfohlen
+                              </span>
+                            )}
+                            {col.note && (
+                              <span className="text-[9px] font-normal text-amber-600 normal-case tracking-normal">{col.note}</span>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filtered.map((item, rowIdx) => {
+                      const isActiveModell = activeModell === item.modell && activeItemHersteller === item.hersteller;
+                      return (
+                        <tr key={item.id}
+                          className={["transition-colors",
+                            saving === item.id ? "opacity-50" : "",
+                            isActiveModell ? "bg-blue-50/40" : rowIdx % 2 !== 0 ? "bg-gray-50/50" : "",
+                            "hover:bg-gray-50"].join(" ")}>
+                          <td className={["sticky left-0 z-10 px-4 py-2 border-r border-gray-100",
+                            isActiveModell ? "bg-blue-50" : "bg-white"].join(" ")}>
+                            <div className="flex flex-col gap-0.5">
+                              <span className={["text-[13px] font-semibold whitespace-nowrap",
+                                isActiveModell ? "text-blue-900" : "text-gray-900"].join(" ")}>
+                                {item.modell}
+                                {saving === item.id && (
+                                  <span className="ml-2 inline-block w-3 h-3 rounded-full border border-gray-400 border-t-transparent animate-spin align-middle" />
+                                )}
+                              </span>
+                              <ModellnummerCell value={item.modellnummer} itemId={item.id} onSave={handleSaveModellnummer} />
+                            </div>
+                          </td>
+                          {columns.map(col => {
+                            const isSelected = selections.some(s => s.field === col.key && s.modell === item.modell && s.hersteller === item.hersteller);
+
+                            // Kameralinse bekommt eigene Zelle
+                            if (col.key === "kameralinse") {
+                              const menge = linsenMenge[item.id] ?? 0;
+                              return (
+                                <td key={col.key}
+                                  className={(GROUP_COLORS[col.group]?.cell ?? "") + " border-x border-gray-50 px-0 py-0"}>
+                                  <LinsenCell
+                                    basePreis={item.kameralinse}
+                                    modell={item.modell}
+                                    hersteller={item.hersteller}
+                                    menge={menge}
+                                    onChangeMenge={(m) => handleLinsenChange(item.id, item.modell, item.hersteller, item.kameralinse ?? 39, m)}
+                                    onSave={handleSave}
+                                    itemId={item.id}
+                                  />
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td key={col.key}
+                                className={["px-1 py-1 border-x",
+                                  col.recommended ? "bg-amber-50/40 border-amber-100"
+                                    : (GROUP_COLORS[col.group]?.cell ?? "") + " border-gray-50"].join(" ")}>
+                                <PriceCell
+                                  value={item[col.key as keyof PriceItem] as number | null}
+                                  itemId={item.id} field={col.key} label={col.label}
+                                  group={col.group} hersteller={item.hersteller} modell={item.modell}
+                                  selected={isSelected} recommended={col.recommended}
+                                  onSelect={handleSelect} onSave={handleSave} note={col.note}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* ── Kalkulator Panel ── */}
+          {selections.length > 0 && (
+            <div className="w-72 flex-shrink-0 sticky top-5">
+              <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
+
+                {/* Header */}
+                <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] font-semibold text-black">Kalkulator</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{selections[0].hersteller} {selections[0].modell}</p>
+                  </div>
+                  <button onClick={() => setSelections([])}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Positionen */}
+                <div className="px-4 py-3 space-y-1.5">
+                  {selections.map((s, i) => {
+                    const isCheapest = selections.length >= 2 && s === cheapest;
+                    return (
+                      <div key={s.field} className="flex items-center gap-2 group">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] text-gray-800 truncate">{s.label}</p>
+                          {isCheapest && (
+                            <p className="text-[10px] text-green-600 font-medium">−25% Kombi-Rabatt</p>
+                          )}
+                          {s.field === "kameralinse" && s.menge && s.menge > 1 && (
+                            <p className="text-[10px] text-gray-400">{s.menge}× Linsen · 1. = {((s.preis - (s.menge - 1) * 15)).toFixed(0)} € + {s.menge - 1}× 15 €</p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={["text-[12.5px] font-semibold", isCheapest ? "line-through text-gray-300" : "text-gray-900"].join(" ")}>
+                            {s.preis.toFixed(2)} €
+                          </p>
+                          {isCheapest && (
+                            <p className="text-[11px] font-semibold text-green-600">
+                              {(s.preis - autoDiscount).toFixed(2)} €
+                            </p>
+                          )}
+                        </div>
+                        <button onClick={() => setSelections(prev => prev.filter(p => p.field !== s.field))}
+                          className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-gray-300 hover:text-red-500 transition-all flex-shrink-0">
+                          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                            <line x1="1" y1="1" x2="8" y2="8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                            <line x1="8" y1="1" x2="1" y2="8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Rabatt-Zeile */}
+                <div className="px-4 pb-3 border-t border-gray-50 pt-3 space-y-2">
+                  {autoDiscount > 0 && (
+                    <div className="flex justify-between text-[12px]">
+                      <span className="text-green-700 font-medium">Kombi-Rabatt (−25%)</span>
+                      <span className="text-green-700 font-semibold">−{autoDiscount.toFixed(2)} €</span>
+                    </div>
+                  )}
+
+                  {/* Frei einstellbarer Rabatt */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11.5px] text-gray-500 flex-1">Zusatzrabatt</span>
+                    <div className="flex items-center gap-1">
+                      {[0, 5, 10, 15, 20].map(p => (
+                        <button key={p} onClick={() => setExtraRabatt(p)}
+                          className={["w-8 h-6 rounded text-[10px] font-medium transition-colors",
+                            extraRabatt === p ? "bg-black text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"].join(" ")}>
+                          {p === 0 ? "—" : `${p}%`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {extraAmt > 0 && (
+                    <div className="flex justify-between text-[12px]">
+                      <span className="text-amber-700">Zusatzrabatt ({extraRabatt}%)</span>
+                      <span className="text-amber-700 font-semibold">−{extraAmt.toFixed(2)} €</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Gesamt */}
+                <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[12px] font-semibold text-gray-500 uppercase tracking-wider">Gesamt</span>
+                    <span className="text-[20px] font-bold text-black">{total.toFixed(2)} €</span>
+                  </div>
+                  {(autoDiscount > 0 || extraAmt > 0) && (
+                    <p className="text-[10.5px] text-green-600 mt-0.5 text-right">
+                      Du sparst {(autoDiscount + extraAmt).toFixed(2)} €
+                    </p>
+                  )}
+                </div>
+
+                {/* Aktionen */}
+                <div className="px-4 py-3 space-y-2 border-t border-gray-100">
+                  <button onClick={handleStartRepair}
+                    className="w-full h-9 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors flex items-center justify-center gap-2">
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                      <path d="M6 1v10M1 6h10" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    Reparatur anlegen
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={handleWhatsApp}
+                      className="h-8 rounded-lg border border-gray-200 text-[11.5px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.556 4.118 1.528 5.845L.057 23.885l6.19-1.623A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.667-.494-5.207-1.361l-.374-.222-3.876 1.016 1.034-3.776-.244-.387A9.959 9.959 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                      </svg>
+                      WhatsApp
+                    </button>
+                    <button onClick={handlePrint}
+                      className="h-8 rounded-lg border border-gray-200 text-[11.5px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <rect x="1" y="3" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                        <path d="M3 3V1.5a.5.5 0 01.5-.5h5a.5.5 0 01.5.5V3" stroke="currentColor" strokeWidth="1.2"/>
+                        <rect x="3" y="6" width="6" height="1" rx=".5" fill="currentColor"/>
+                        <rect x="3" y="8" width="4" height="1" rx=".5" fill="currentColor"/>
+                      </svg>
+                      Drucken / PDF
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );

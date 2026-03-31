@@ -15,6 +15,8 @@ type InventoryItem = {
   speicher: string | null;
   akkustand: number | null;
   garantie: string | null;
+  zustand: string | null;
+  sim_typ: string | null;
   notizen: string | null;
   verkaufspreis: number | null;
   created_at: string;
@@ -22,11 +24,35 @@ type InventoryItem = {
 
 const GERAETETYPEN = ['Smartphone', 'Tablet', 'Laptop', 'Smartwatch', 'Sonstiges'];
 const GARANTIE_OPTIONS = ['Keine', '3 Monate', '6 Monate', '12 Monate', '24 Monate'];
+const ZUSTAND_OPTIONS = ['Neu', 'Generalüberholt', 'Aussteller'] as const;
+const SIM_OPTIONS = ['Keine', 'Single SIM', 'Dual SIM', 'E-SIM'] as const;
+const SPEICHER_OPTIONS = [
+  '16 GB', '32 GB', '64 GB', '128 GB', '256 GB', '512 GB',
+  '1 TB', '2 TB',
+];
+const HERSTELLER_OPTIONS = [
+  'Apple', 'Samsung', 'Xiaomi', 'Huawei', 'Google',
+  'Oppo', 'HTC', 'Lenovo', 'Asus', 'HP', 'Sonstiges',
+];
 
 const inputClass = 'w-full h-9 px-3 text-[12.5px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-shadow';
 const labelClass = 'block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5';
 
-// Gerätetyp Icon
+// ─── Zustand Badge ────────────────────────────────────────────────────────────
+function ZustandBadge({ zustand }: { zustand: string }) {
+  const styles: Record<string, string> = {
+    'Neu':              'bg-green-50 text-green-700',
+    'Generalüberholt':  'bg-blue-50 text-blue-700',
+    'Aussteller':       'bg-amber-50 text-amber-700',
+  };
+  return (
+    <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${styles[zustand] ?? 'bg-gray-100 text-gray-500'}`}>
+      {zustand}
+    </span>
+  );
+}
+
+// ─── Gerätetyp Icon ───────────────────────────────────────────────────────────
 function GeraetIcon({ typ }: { typ: string }) {
   switch (typ.toLowerCase()) {
     case 'smartphone':
@@ -78,17 +104,28 @@ function ItemModal({ item, onClose, onSave }: {
 }) {
   const supabase = createClient();
   const isNew = !item?.id;
+
+  // Preset-Erkennung: wenn Hersteller in der Liste → preset setzen, sonst "Sonstiges"
+  const initialPreset = HERSTELLER_OPTIONS.includes(item?.hersteller ?? '')
+    ? (item?.hersteller ?? 'Apple')
+    : item?.hersteller
+      ? 'Sonstiges'
+      : 'Apple';
+
   const [form, setForm] = useState({
-    hersteller:    item?.hersteller    ?? '',
-    modell:        item?.modell        ?? '',
-    geraetetyp:    item?.geraetetyp    ?? 'Smartphone',
-    imei:          item?.imei          ?? '',
-    farbe:         item?.farbe         ?? '',
-    speicher:      item?.speicher      ?? '',
-    akkustand:     item?.akkustand?.toString()    ?? '',
-    garantie:      item?.garantie      ?? 'Keine',
-    verkaufspreis: item?.verkaufspreis?.toString() ?? '',
-    notizen:       item?.notizen       ?? '',
+    hersteller:        item?.hersteller ?? 'Apple',
+    hersteller_preset: initialPreset,
+    modell:            item?.modell        ?? '',
+    geraetetyp:        item?.geraetetyp    ?? 'Smartphone',
+    imei:              item?.imei          ?? '',
+    farbe:             item?.farbe         ?? '',
+    speicher:          item?.speicher      ?? '128 GB',
+    akkustand:         item?.akkustand?.toString()    ?? '',
+    garantie:          item?.garantie      ?? '12 Monate',
+    zustand:           item?.zustand       ?? 'Generalüberholt',
+    sim_typ:           item?.sim_typ       ?? 'Dual SIM',
+    verkaufspreis:     item?.verkaufspreis?.toString() ?? '',
+    notizen:           item?.notizen       ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -105,14 +142,18 @@ function ItemModal({ item, onClose, onSave }: {
     setError('');
     try {
       const payload = {
-        ...form,
+        hersteller:    form.hersteller,
+        modell:        form.modell,
+        geraetetyp:    form.geraetetyp    || null,
+        imei:          form.imei          || null,
+        farbe:         form.farbe         || null,
+        speicher:      form.speicher      || null,
         akkustand:     form.akkustand     !== '' ? parseInt(form.akkustand)       : null,
+        garantie:      form.garantie === 'Keine' ? null : form.garantie,
+        zustand:       form.zustand       || null,
+        sim_typ:       form.sim_typ === 'Keine' ? null : (form.sim_typ || null),
         verkaufspreis: form.verkaufspreis !== '' ? parseFloat(form.verkaufspreis) : null,
-        speicher:  form.speicher  || null,
-        garantie:  form.garantie === 'Keine' ? null : form.garantie,
-        farbe:     form.farbe    || null,
-        imei:      form.imei     || null,
-        notizen:   form.notizen  || null,
+        notizen:       form.notizen       || null,
       };
       if (isNew) {
         const { error: err } = await supabase.from('inventory').insert([payload]);
@@ -139,6 +180,7 @@ function ItemModal({ item, onClose, onSave }: {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="w-full max-w-lg bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-[15px] font-semibold text-black">
             {isNew ? 'Neues Gerät' : 'Gerät bearbeiten'}
@@ -152,17 +194,40 @@ function ItemModal({ item, onClose, onSave }: {
           </button>
         </div>
 
+        {/* Body */}
         <div className="px-5 py-4 space-y-3 max-h-[65vh] overflow-y-auto">
           {error && (
             <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2.5 text-[12px] text-red-600">
               {error}
             </div>
           )}
+
+          {/* Hersteller + Modell */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Hersteller <span className="text-red-400">*</span></label>
-              <input value={form.hersteller} onChange={e => set('hersteller', e.target.value)}
-                placeholder="Apple" className={inputClass} />
+              <select
+                value={form.hersteller_preset}
+                onChange={e => {
+                  const val = e.target.value;
+                  set('hersteller_preset', val);
+                  if (val !== 'Sonstiges') set('hersteller', val);
+                  else set('hersteller', '');
+                }}
+                className={inputClass + ' cursor-pointer'}
+              >
+                {HERSTELLER_OPTIONS.map(h => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              {form.hersteller_preset === 'Sonstiges' && (
+                <input
+                  value={form.hersteller}
+                  onChange={e => set('hersteller', e.target.value)}
+                  placeholder="Hersteller eingeben …"
+                  className={inputClass + ' mt-1.5'}
+                />
+              )}
             </div>
             <div>
               <label className={labelClass}>Modell <span className="text-red-400">*</span></label>
@@ -170,6 +235,8 @@ function ItemModal({ item, onClose, onSave }: {
                 placeholder="iPhone 15 Pro" className={inputClass} />
             </div>
           </div>
+
+          {/* Gerätetyp + Farbe */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Gerätetyp</label>
@@ -184,16 +251,22 @@ function ItemModal({ item, onClose, onSave }: {
                 placeholder="Schwarz" className={inputClass} />
             </div>
           </div>
+
+          {/* IMEI */}
           <div>
             <label className={labelClass}>IMEI / Seriennummer</label>
             <input value={form.imei} onChange={e => set('imei', e.target.value)}
               placeholder="353012340012345" className={inputClass + ' font-mono'} />
           </div>
+
+          {/* Speicher + Garantie */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Speicher</label>
-              <input value={form.speicher} onChange={e => set('speicher', e.target.value)}
-                placeholder="128 GB" className={inputClass} />
+              <select value={form.speicher} onChange={e => set('speicher', e.target.value)}
+                className={inputClass + ' cursor-pointer'}>
+                {SPEICHER_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div>
               <label className={labelClass}>Garantie</label>
@@ -203,6 +276,52 @@ function ItemModal({ item, onClose, onSave }: {
               </select>
             </div>
           </div>
+
+          {/* Zustand – 3 Pill-Buttons */}
+          <div>
+            <label className={labelClass}>Zustand</label>
+            <div className="flex gap-2">
+              {ZUSTAND_OPTIONS.map(z => (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => set('zustand', z)}
+                  className={[
+                    'flex-1 h-9 rounded-lg border text-[12px] font-medium transition-colors',
+                    form.zustand === z
+                      ? 'bg-black border-black text-white'
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700',
+                  ].join(' ')}
+                >
+                  {z}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* SIM – 3 Pill-Buttons */}
+          <div>
+            <label className={labelClass}>SIM</label>
+            <div className="flex gap-2">
+              {SIM_OPTIONS.map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => set('sim_typ', s)}
+                  className={[
+                    'flex-1 h-9 rounded-lg border text-[12px] font-medium transition-colors',
+                    form.sim_typ === s
+                      ? 'bg-black border-black text-white'
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700',
+                  ].join(' ')}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Akkustand – nur Apple */}
           {isApple && (
             <div>
               <label className={labelClass}>
@@ -214,12 +333,16 @@ function ItemModal({ item, onClose, onSave }: {
                 placeholder="87" className={inputClass} />
             </div>
           )}
+
+          {/* Verkaufspreis */}
           <div>
             <label className={labelClass}>Verkaufspreis (€)</label>
             <input type="number" min="0" step="0.01" value={form.verkaufspreis}
               onChange={e => set('verkaufspreis', e.target.value)}
               placeholder="0.00" className={inputClass} />
           </div>
+
+          {/* Notiz */}
           <div>
             <label className={labelClass}>Notiz</label>
             <textarea value={form.notizen} onChange={e => set('notizen', e.target.value)}
@@ -229,6 +352,7 @@ function ItemModal({ item, onClose, onSave }: {
           </div>
         </div>
 
+        {/* Footer */}
         <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-gray-50/60">
           <button onClick={onClose}
             className="h-8 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-500 hover:bg-white transition-colors">
@@ -248,9 +372,9 @@ function ItemModal({ item, onClose, onSave }: {
 
 export default function InventoryPage() {
   const supabase = createClient();
-  const [items, setItems]       = useState<InventoryItem[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
+  const [items, setItems]           = useState<InventoryItem[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [search, setSearch]         = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('alle');
   const [modalItem, setModalItem]   = useState<Partial<InventoryItem> | null | undefined>(undefined);
   const [deleting, setDeleting]     = useState<string | null>(null);
@@ -268,7 +392,7 @@ export default function InventoryPage() {
   useEffect(() => { load(); }, [load]);
 
   // Gerätetyp-Statistik
-  const typeCounts = [...GERAETETYPEN, 'Sonstiges'].reduce((acc, typ) => {
+  const typeCounts = [...GERAETETYPEN].reduce((acc, typ) => {
     acc[typ] = items.filter(i =>
       (i.geraetetyp ?? 'Sonstiges').toLowerCase() === typ.toLowerCase()
     ).length;
@@ -285,7 +409,8 @@ export default function InventoryPage() {
       || i.hersteller.toLowerCase().includes(q)
       || i.modell.toLowerCase().includes(q)
       || (i.imei ?? '').toLowerCase().includes(q)
-      || (i.farbe ?? '').toLowerCase().includes(q);
+      || (i.farbe ?? '').toLowerCase().includes(q)
+      || (i.zustand ?? '').toLowerCase().includes(q);
     return matchType && matchSearch;
   });
 
@@ -317,7 +442,7 @@ export default function InventoryPage() {
           </button>
         </div>
 
-        {/* ── Gerätetyp Übersicht – klickbare Filter-Karten ── */}
+        {/* ── Gerätetyp Filter-Karten ── */}
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5 mb-7">
           {/* Alle */}
           <button
@@ -430,7 +555,7 @@ export default function InventoryPage() {
               <table className="w-full hidden md:table">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    {['Hersteller', 'Modell', 'Typ', 'IMEI', 'Speicher', 'Farbe', 'Akku', 'Garantie', 'Preis', 'Notiz', ''].map(h => (
+                    {['Hersteller', 'Modell', 'Typ', 'IMEI', 'Speicher', 'Farbe', 'Akku', 'Garantie', 'SIM', 'Zustand', 'Preis', 'Notiz', ''].map(h => (
                       <th key={h} className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
                         {h}
                       </th>
@@ -465,6 +590,10 @@ export default function InventoryPage() {
                         ) : '—'}
                       </td>
                       <td className="px-4 py-3 text-[12px] text-gray-500">{item.garantie ?? '—'}</td>
+                      <td className="px-4 py-3 text-[12px] text-gray-500">{item.sim_typ ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        {item.zustand ? <ZustandBadge zustand={item.zustand} /> : '—'}
+                      </td>
                       <td className="px-4 py-3 text-[12.5px] font-semibold text-gray-900">
                         {item.verkaufspreis != null ? `${item.verkaufspreis.toFixed(2)} €` : '—'}
                       </td>
@@ -506,6 +635,11 @@ export default function InventoryPage() {
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           {[item.geraetetyp, item.speicher, item.farbe].filter(Boolean).join(' · ') || '—'}
                         </p>
+                        {item.zustand && (
+                          <div className="mt-1">
+                            <ZustandBadge zustand={item.zustand} />
+                          </div>
+                        )}
                       </div>
                       {item.verkaufspreis != null && (
                         <span className="text-[13px] font-semibold text-gray-900">
