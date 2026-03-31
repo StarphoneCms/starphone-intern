@@ -2,338 +2,367 @@
 
 // Pfad: src/app/dashboard/DashboardClient.tsx
 
-import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/browser";
+import { useMemo, useState, useRef } from "react";
+import {
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
+  PointerSensor, useDroppable, useSensor, useSensors,
+} from "@dnd-kit/core";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
-// ─── Status Konfiguration (neue 7 Status) ─────────────────────────────────────
+// ─── Neue 7 Status ────────────────────────────────────────────────────────────
 
-type Status =
-  | "in_reparatur"
-  | "warten_ersatzteile"
-  | "warten_kunde"
-  | "aussendienst"
-  | "nicht_moeglich"
-  | "abholbereit"
-  | "abgeschlossen";
+export type DashboardStatus =
+  | "In Reparatur"
+  | "Warten Ersatzteile"
+  | "Warten Kunde"
+  | "Außendienst"
+  | "Nicht möglich"
+  | "Abholbereit"
+  | "Abgeschlossen";
 
-const STATUS_CONFIG: Record<Status, {
-  label: string;
-  color: string;       // Tailwind text-*
-  bg: string;          // Tailwind bg-*
-  dot: string;         // Tailwind bg-* für Dot
-  border: string;      // Tailwind border-*
-  kanbanBorder: string;// Kanban-Spalten-Farbe
-}> = {
-  in_reparatur:       { label: "In Reparatur",           color: "text-blue-700",   bg: "bg-blue-50",   dot: "bg-blue-500",   border: "border-blue-200",  kanbanBorder: "border-t-blue-400"   },
-  warten_ersatzteile: { label: "Warten auf Ersatzteile",  color: "text-amber-700",  bg: "bg-amber-50",  dot: "bg-amber-500",  border: "border-amber-200", kanbanBorder: "border-t-amber-400"  },
-  warten_kunde:       { label: "Warten auf Kunden",       color: "text-orange-700", bg: "bg-orange-50", dot: "bg-orange-500", border: "border-orange-200",kanbanBorder: "border-t-orange-400" },
-  aussendienst:       { label: "Außendienst",             color: "text-violet-700", bg: "bg-violet-50", dot: "bg-violet-500", border: "border-violet-200",kanbanBorder: "border-t-violet-400" },
-  nicht_moeglich:     { label: "Nicht möglich",           color: "text-red-700",    bg: "bg-red-50",    dot: "bg-red-500",    border: "border-red-200",   kanbanBorder: "border-t-red-400"    },
-  abholbereit:        { label: "Abholbereit",             color: "text-green-700",  bg: "bg-green-50",  dot: "bg-green-500",  border: "border-green-200", kanbanBorder: "border-t-green-400"  },
-  abgeschlossen:      { label: "Abgeschlossen",           color: "text-gray-500",   bg: "bg-gray-100",  dot: "bg-gray-400",   border: "border-gray-200",  kanbanBorder: "border-t-gray-300"   },
-};
-
-// Aktive Status (nicht abgeschlossen) für KPI
-const ACTIVE_STATUS: Status[] = [
-  "in_reparatur", "warten_ersatzteile", "warten_kunde",
-  "aussendienst", "nicht_moeglich", "abholbereit",
-];
-
-// Kanban-Reihenfolge
-const KANBAN_STATUS: Status[] = [
-  "in_reparatur", "warten_ersatzteile", "warten_kunde",
-  "aussendienst", "nicht_moeglich", "abholbereit", "abgeschlossen",
-];
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Repair = {
+export type DashboardRepair = {
   id: string;
-  auftragsnummer: string;
-  status: Status;
+  auftragsnummer: string | null;
+  status: string | null;
+  kunden_name: string | null;
   hersteller: string | null;
   modell: string | null;
   geraetetyp: string | null;
-  kunden_name: string;
   reparatur_problem: string | null;
-  annahme_datum: string;
-  letzter_statuswechsel: string | null;
+  annahme_datum: string | null;
+  updated_at: string | null;
+  boardStatus: DashboardStatus;
 };
 
-// ─── Status Pill ──────────────────────────────────────────────────────────────
+export const STATUS_COLUMNS: DashboardStatus[] = [
+  "In Reparatur", "Warten Ersatzteile", "Warten Kunde",
+  "Außendienst", "Nicht möglich", "Abholbereit", "Abgeschlossen",
+];
 
-function StatusPill({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status as Status];
-  if (!cfg) return <span className="text-[11px] text-gray-400">{status}</span>;
-  return (
-    <span className={[
-      "inline-flex items-center gap-1.5 h-5 px-2 rounded-full text-[10.5px] font-medium border",
-      cfg.bg, cfg.color, cfg.border,
-    ].join(" ")}>
-      <span className={["w-1.5 h-1.5 rounded-full shrink-0", cfg.dot].join(" ")} />
-      {cfg.label}
-    </span>
-  );
+// Mapping: Board-Label → DB-Wert
+const STATUS_VALUE_MAP: Record<DashboardStatus, string> = {
+  "In Reparatur":      "in_reparatur",
+  "Warten Ersatzteile":"warten_ersatzteile",
+  "Warten Kunde":      "warten_kunde",
+  "Außendienst":       "aussendienst",
+  "Nicht möglich":     "nicht_moeglich",
+  "Abholbereit":       "abholbereit",
+  "Abgeschlossen":     "abgeschlossen",
+};
+
+const STATUS_STRIPE: Record<DashboardStatus, string> = {
+  "In Reparatur":      "#6366F1",
+  "Warten Ersatzteile":"#F59E0B",
+  "Warten Kunde":      "#F97316",
+  "Außendienst":       "#8B5CF6",
+  "Nicht möglich":     "#EF4444",
+  "Abholbereit":       "#10B981",
+  "Abgeschlossen":     "#9CA3AF",
+};
+
+const STATUS_CONFIG: Record<DashboardStatus, {
+  dot: string; pill: string; colBg: string; colBorder: string; colDrop: string;
+}> = {
+  "In Reparatur":      { dot: "bg-indigo-500",  pill: "bg-indigo-50  text-indigo-800  border-indigo-200",  colBg: "bg-indigo-50/50",  colBorder: "border-indigo-200",  colDrop: "ring-indigo-300"  },
+  "Warten Ersatzteile":{ dot: "bg-amber-500",   pill: "bg-amber-50   text-amber-800   border-amber-200",   colBg: "bg-amber-50/50",   colBorder: "border-amber-200",   colDrop: "ring-amber-300"   },
+  "Warten Kunde":      { dot: "bg-orange-500",  pill: "bg-orange-50  text-orange-800  border-orange-200",  colBg: "bg-orange-50/50",  colBorder: "border-orange-200",  colDrop: "ring-orange-300"  },
+  "Außendienst":       { dot: "bg-violet-500",  pill: "bg-violet-50  text-violet-800  border-violet-200",  colBg: "bg-violet-50/50",  colBorder: "border-violet-200",  colDrop: "ring-violet-300"  },
+  "Nicht möglich":     { dot: "bg-red-500",     pill: "bg-red-50     text-red-800     border-red-200",     colBg: "bg-red-50/50",     colBorder: "border-red-200",     colDrop: "ring-red-300"     },
+  "Abholbereit":       { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-800 border-emerald-200", colBg: "bg-emerald-50/50", colBorder: "border-emerald-200", colDrop: "ring-emerald-300" },
+  "Abgeschlossen":     { dot: "bg-gray-400",    pill: "bg-gray-100   text-gray-600    border-gray-200",    colBg: "bg-gray-50",       colBorder: "border-gray-200",    colDrop: "ring-gray-300"    },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatAge(from: string | null): string {
+  if (!from) return "—";
+  const ms = Date.now() - new Date(from).getTime();
+  const h  = Math.floor(ms / 3600000);
+  const d  = Math.floor(ms / 86400000);
+  if (h < 1)  return "gerade";
+  if (h < 24) return `${h}h`;
+  if (d === 1) return "1 Tag";
+  return `${d} Tage`;
 }
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
+function getHealth(r: DashboardRepair): { text: string; cls: string } | null {
+  const ud = r.updated_at    ? Math.floor((Date.now() - new Date(r.updated_at).getTime())    / 86400000) : null;
+  const cd = r.annahme_datum ? Math.floor((Date.now() - new Date(r.annahme_datum).getTime()) / 86400000) : null;
+  if (r.boardStatus === "Warten Kunde"       && ud != null && ud >= 3) return { text: `${ud}d ohne Reaktion`, cls: "text-red-700 bg-red-50 border-red-200" };
+  if (r.boardStatus === "Warten Ersatzteile" && ud != null && ud >= 4) return { text: `${ud}d unverändert`,   cls: "text-amber-700 bg-amber-50 border-amber-200" };
+  if (r.boardStatus === "In Reparatur"       && cd != null && cd >= 5) return { text: `${cd}d offen`,         cls: "text-orange-700 bg-orange-50 border-orange-200" };
+  if (r.boardStatus === "Abholbereit"        && ud != null && ud >= 3) return { text: `${ud}d wartet`,        cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
+  return null;
+}
 
-function KPICard({ title, value, sub, dot }: {
-  title: string; value: number | string; sub?: string; dot?: string;
-}) {
+// ─── 3D Card Hook ─────────────────────────────────────────────────────────────
+
+function use3DCard() {
+  const ref = useRef<HTMLDivElement>(null);
+  function onMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current; if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const rotX = ((y - rect.height / 2) / (rect.height / 2)) * -7;
+    const rotY = ((x - rect.width  / 2) / (rect.width  / 2)) *  7;
+    el.style.transform = `perspective(700px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(1.02)`;
+    el.style.boxShadow = `0 ${8 + Math.abs(rotX)}px 20px rgba(0,0,0,0.09)`;
+    el.style.setProperty("--gx", `${Math.round((x / rect.width)  * 100)}%`);
+    el.style.setProperty("--gy", `${Math.round((y / rect.height) * 100)}%`);
+    el.style.setProperty("--go", "1");
+  }
+  function onMouseLeave() {
+    const el = ref.current; if (!el) return;
+    el.style.transform = "perspective(700px) rotateX(0deg) rotateY(0deg) scale(1)";
+    el.style.boxShadow = "";
+    el.style.setProperty("--go", "0");
+  }
+  return { ref, onMouseMove, onMouseLeave };
+}
+
+// ─── KPI Cards ────────────────────────────────────────────────────────────────
+
+function KpiCards({ items }: { items: DashboardRepair[] }) {
+  const aktiv       = items.filter(r => r.boardStatus !== "Abgeschlossen").length;
+  const wartenKunde = items.filter(r => r.boardStatus === "Warten Kunde").length;
+  const abholbereit = items.filter(r => r.boardStatus === "Abholbereit").length;
+  const abgeschlossen = items.filter(r => r.boardStatus === "Abgeschlossen").length;
+  const inProgress  = items.filter(r => r.boardStatus === "In Reparatur").length;
+
   return (
-    <div className="rounded-xl border border-gray-100 bg-white px-5 py-4">
-      <div className="flex items-center gap-2 mb-2">
-        {dot && <span className={["w-2 h-2 rounded-full", dot].join(" ")} />}
-        <span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">{title}</span>
-      </div>
-      <p className="text-[28px] font-bold text-black leading-none mb-1">{value}</p>
-      {sub && <p className="text-[11.5px] text-gray-400">{sub}</p>}
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      <KpiCard label="Aktive Aufträge"    value={aktiv}       dotColor="bg-amber-400"   hint={`${inProgress} in Bearbeitung`} />
+      <KpiCard label="Warten auf Kunden"  value={wartenKunde} dotColor="bg-orange-500"  urgent />
+      <KpiCard label="Abholbereit"        value={abholbereit} dotColor="bg-emerald-500" hint="Warten auf Abholung" />
+      <KpiCard label="Abgeschlossen"      value={abgeschlossen} dotColor="bg-gray-400"  hint={`von ${items.length} gesamt`} />
     </div>
   );
 }
 
-// ─── Repair Card (Kanban) ─────────────────────────────────────────────────────
-
-function RepairCard({ repair, onStatusChange }: {
-  repair: Repair;
-  onStatusChange: (id: string, newStatus: Status) => void;
+function KpiCard({ label, value, dotColor, hint, urgent }: {
+  label: string; value: number; dotColor: string; hint?: string; urgent?: boolean;
 }) {
-  const supabase = createClient();
-  const [changing, setChanging] = useState(false);
+  return (
+    <div className={`rounded-2xl p-5 border transition-all ${
+      urgent && value > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200 shadow-sm"
+    }`}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`w-2 h-2 rounded-full ${dotColor} ${urgent && value > 0 ? "animate-pulse" : ""}`} />
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</span>
+      </div>
+      <div className={`text-4xl font-semibold tracking-tight ${urgent && value > 0 ? "text-red-600" : "text-gray-900"}`}>
+        {value}
+      </div>
+      {hint && <div className="text-xs text-gray-400 mt-1.5">{hint}</div>}
+    </div>
+  );
+}
 
-  function timeAgo(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime();
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor(diff / 60000);
-    if (d > 0) return `${d} Tag${d > 1 ? "e" : ""}`;
-    if (h > 0) return `${h}h`;
-    return `${m}m`;
-  }
+// ─── RepairCard ───────────────────────────────────────────────────────────────
 
-  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const newStatus = e.target.value as Status;
-    if (newStatus === repair.status) return;
-    setChanging(true);
-    const { error } = await supabase
-      .from("repairs")
-      .update({ status: newStatus, letzter_statuswechsel: new Date().toISOString() })
-      .eq("id", repair.id);
-    setChanging(false);
-    if (error) { alert("Fehler: " + error.message); return; }
-    onStatusChange(repair.id, newStatus);
-  }
-
-  const ago     = timeAgo(repair.annahme_datum);
-  const updated = repair.letzter_statuswechsel ? timeAgo(repair.letzter_statuswechsel) : null;
+function RepairCard({ repair, saving, overlay = false, onStatusChange }: {
+  repair: DashboardRepair; saving: boolean; overlay?: boolean;
+  onStatusChange?: (id: string, next: DashboardStatus) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: repair.id, disabled: overlay });
+  const { ref: card3dRef, onMouseMove, onMouseLeave } = use3DCard();
+  const cfg    = STATUS_CONFIG[repair.boardStatus];
+  const health = getHealth(repair);
+  const active = !overlay && !isDragging;
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3 space-y-2.5 hover:shadow-sm transition-shadow">
-      {/* Gerät + Drag handle */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[12.5px] font-semibold text-gray-900 leading-tight truncate">
-            {repair.hersteller || repair.modell
-              ? `${repair.hersteller ?? ""} ${repair.modell ?? ""}`.trim()
-              : "Gerät"}
-          </p>
-          <p className="text-[11px] text-gray-400">{repair.geraetetyp ?? "—"}</p>
+    <div ref={overlay ? undefined : setNodeRef}
+      style={overlay ? undefined : { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 }}>
+      <div
+        ref={active ? card3dRef : undefined}
+        onMouseMove={active ? onMouseMove : undefined}
+        onMouseLeave={active ? onMouseLeave : undefined}
+        style={{ transformStyle: "preserve-3d", transition: "transform 0.12s ease, box-shadow 0.12s ease", willChange: "transform", borderRadius: 12, position: "relative" }}
+      >
+        {/* Glare */}
+        {active && (
+          <div style={{ position: "absolute", inset: 0, borderRadius: 12, pointerEvents: "none", zIndex: 2,
+            background: "radial-gradient(circle at var(--gx,50%) var(--gy,50%), rgba(255,255,255,0.25) 0%, transparent 60%)",
+            opacity: "var(--go, 0)" as unknown as number, transition: "opacity 0.15s" }} />
+        )}
+
+        <div className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${overlay ? "shadow-2xl ring-1 ring-gray-300 scale-[1.02]" : "shadow-sm"}`}>
+          {/* Farbstreifen */}
+          <div className="h-[3px]" style={{ backgroundColor: STATUS_STRIPE[repair.boardStatus] }} />
+          <div className="p-3 space-y-2">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900 truncate">
+                  {repair.hersteller || "Gerät"} {repair.modell || ""}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">{repair.geraetetyp || "Smartphone"}</div>
+              </div>
+              <button type="button" {...(overlay ? {} : listeners)} {...(overlay ? {} : attributes)}
+                className="cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing shrink-0 select-none text-base">⠿</button>
+            </div>
+
+            {/* Kunde + Nr */}
+            <div>
+              <div className="text-sm font-medium text-gray-800">{repair.kunden_name || "Unbekannt"}</div>
+              <div className="text-[11px] font-mono text-gray-400 mt-0.5">{repair.auftragsnummer || repair.id.slice(0, 8)}</div>
+            </div>
+
+            {/* Status Pill */}
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${cfg.pill}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+              {repair.boardStatus}
+            </span>
+
+            {/* Health */}
+            {health && (
+              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-medium ${health.cls}`}>
+                ⚠ {health.text}
+              </div>
+            )}
+
+            {/* Problem */}
+            {repair.reparatur_problem && (
+              <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{repair.reparatur_problem}</p>
+            )}
+
+            {/* Zeit */}
+            <div className="text-[10px] text-gray-400">{formatAge(repair.annahme_datum)} · Update {formatAge(repair.updated_at)}</div>
+
+            {/* Status Dropdown */}
+            {onStatusChange && (
+              <select value={repair.boardStatus}
+                onChange={(e) => onStatusChange(repair.id, e.target.value as DashboardStatus)}
+                disabled={saving} onClick={(e) => e.stopPropagation()}
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-700 outline-none focus:border-gray-400 transition disabled:opacity-50 cursor-pointer">
+                {STATUS_COLUMNS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between">
+              <Link href={`/repairs/${repair.id}`} onClick={(e) => e.stopPropagation()}
+                className="text-xs font-medium text-gray-400 hover:text-gray-900 transition-colors">Öffnen →</Link>
+              {saving && (
+                <div className="flex items-center gap-1">
+                  <div className="w-2.5 h-2.5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+                  <span className="text-[10px] text-gray-400">Speichert…</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <span className="text-gray-200 text-[16px] shrink-0 mt-0.5">⠿</span>
       </div>
+    </div>
+  );
+}
 
-      {/* Kunde + Auftragsnr */}
-      <div>
-        <p className="text-[12px] font-medium text-gray-700">{repair.kunden_name}</p>
-        <p className="text-[10.5px] text-gray-400 font-mono">{repair.auftragsnummer}</p>
+// ─── BoardColumn ──────────────────────────────────────────────────────────────
+
+function BoardColumn({ status, items, savingId, onStatusChange }: {
+  status: DashboardStatus; items: DashboardRepair[]; savingId: string | null;
+  onStatusChange: (id: string, next: DashboardStatus) => void;
+}) {
+  const cfg = STATUS_CONFIG[status];
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return (
+    <section ref={setNodeRef}
+      className={`w-[220px] shrink-0 rounded-2xl border transition-all ${cfg.colBg} ${cfg.colBorder} ${isOver ? `ring-2 ${cfg.colDrop}` : ""}`}>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-inherit">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full ${cfg.dot} ${isOver ? "animate-pulse" : ""}`} />
+          <span className="text-[11px] font-semibold text-gray-700 truncate max-w-[130px]">{status}</span>
+        </div>
+        <span className="text-xs font-medium text-gray-400 tabular-nums shrink-0">{items.length}</span>
       </div>
+      <div className="p-2 space-y-2 min-h-[80px]">
+        {items.length === 0 ? (
+          <div className={`rounded-xl border-2 border-dashed p-4 text-center text-xs transition-all ${isOver ? "border-gray-400 text-gray-500 bg-white/60" : "border-gray-200 text-gray-300"}`}>
+            {isOver ? "Ablegen" : "Leer"}
+          </div>
+        ) : (
+          items.map((r) => (
+            <RepairCard key={r.id} repair={r} saving={savingId === r.id} onStatusChange={onStatusChange} />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
 
-      {/* Status Pill */}
-      <StatusPill status={repair.status} />
+// ─── Main DashboardClient ─────────────────────────────────────────────────────
 
-      {/* Problem */}
-      {repair.reparatur_problem && (
-        <p className="text-[11px] text-gray-500 line-clamp-2">{repair.reparatur_problem}</p>
+export default function DashboardClient({ initialItems }: { initialItems: DashboardRepair[] }) {
+  const [items, setItems]       = useState<DashboardRepair[]>(initialItems ?? []);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
+
+  const sensors      = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const grouped      = useMemo(() => STATUS_COLUMNS.map((s) => ({ status: s, items: items.filter((i) => i.boardStatus === s) })), [items]);
+  const activeRepair = useMemo(() => items.find((i) => i.id === activeId) ?? null, [items, activeId]);
+
+  async function updateStatus(repairId: string, nextStatus: DashboardStatus) {
+    const current = items.find((i) => i.id === repairId);
+    if (!current || current.boardStatus === nextStatus) return;
+    const prev = [...items];
+    setError(null);
+    // Optimistic update
+    setItems((p) => p.map((i) =>
+      i.id === repairId ? { ...i, status: STATUS_VALUE_MAP[nextStatus], boardStatus: nextStatus, updated_at: new Date().toISOString() } : i
+    ));
+    setSavingId(repairId);
+    try {
+      const res  = await fetch(`/api/repairs/${repairId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: STATUS_VALUE_MAP[nextStatus] }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error(json?.error?.message ?? `Fehler ${res.status}`);
+      setItems((p) => p.map((i) => i.id === repairId ? { ...i, ...(json.data ?? {}), boardStatus: nextStatus } : i));
+    } catch (e: unknown) {
+      setItems(prev);
+      setError(e instanceof Error ? e.message : "Fehler beim Speichern.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* KPI Cards – live */}
+      <KpiCards items={items} />
+
+      {error && (
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+          <span>⚠ {error}</span>
+          <button onClick={() => setError(null)} className="ml-4 text-red-400 hover:text-red-600 text-xl leading-none">×</button>
+        </div>
       )}
 
-      {/* Zeit */}
-      <p className="text-[10.5px] text-gray-300">
-        {ago} · Update {updated ?? ago}
-      </p>
-
-      {/* Status Dropdown */}
-      <div className="relative">
-        <select
-          value={repair.status}
-          onChange={handleStatusChange}
-          disabled={changing}
-          className="w-full h-7 pl-2 pr-7 rounded-lg border border-gray-200 text-[11.5px] text-gray-600 bg-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-gray-300 disabled:opacity-50"
-        >
-          {KANBAN_STATUS.map(s => (
-            <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-          ))}
-        </select>
-        <svg className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400"
-          width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <polyline points="2,4 5,7 8,4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </div>
-
-      {/* Link */}
-      <Link href={`/repairs/${repair.id}`}
-        className="block text-[11px] text-gray-400 hover:text-gray-700 transition-colors">
-        Öffnen →
-      </Link>
-    </div>
-  );
-}
-
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
-
-export default function DashboardClient() {
-  const supabase = createClient();
-  const [repairs, setRepairs] = useState<Repair[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true); setError(null);
-    const { data, error: err } = await supabase
-      .from("repairs")
-      .select(`
-        id, auftragsnummer, status, hersteller, modell, geraetetyp,
-        kunden_name, reparatur_problem, annahme_datum, letzter_statuswechsel
-      `)
-      .order("annahme_datum", { ascending: false });
-
-    if (err) { setError(err.message); setLoading(false); return; }
-    setRepairs((data ?? []) as Repair[]);
-    setLoading(false);
-  }, [supabase]);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Live Subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("dashboard-repairs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "repairs" }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [supabase, load]);
-
-  function handleStatusChange(id: string, newStatus: Status) {
-    setRepairs(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
-  }
-
-  // KPI Berechnung
-  const total      = repairs.length;
-  const aktiv      = repairs.filter(r => ACTIVE_STATUS.includes(r.status)).length;
-  const abholbereit = repairs.filter(r => r.status === "abholbereit").length;
-  const abgeschlossen = repairs.filter(r => r.status === "abgeschlossen").length;
-  const warten_kunde  = repairs.filter(r => r.status === "warten_kunde").length;
-
-  // Kanban gruppieren
-  const byStatus = Object.fromEntries(
-    KANBAN_STATUS.map(s => [s, repairs.filter(r => r.status === s)])
-  ) as Record<Status, Repair[]>;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-[12px] text-gray-300">
-        Lade Dashboard …
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-red-100 bg-red-50 text-[12.5px] text-red-600">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
-          <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2"/>
-          <line x1="7" y1="4" x2="7" y2="7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <circle cx="7" cy="9.5" r="0.6" fill="currentColor"/>
-        </svg>
-        {error}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title="Aktive Aufträge"
-          value={aktiv}
-          sub={`${total > 0 ? total - abgeschlossen : 0} in Bearbeitung`}
-          dot="bg-amber-500"
-        />
-        <KPICard
-          title="Warten auf Kunden"
-          value={warten_kunde}
-          sub="Rückfrage offen"
-          dot="bg-orange-500"
-        />
-        <KPICard
-          title="Abholbereit"
-          value={abholbereit}
-          sub="Warten auf Abholung"
-          dot="bg-green-500"
-        />
-        <KPICard
-          title="Abgeschlossen"
-          value={abgeschlossen}
-          sub={`von ${total} gesamt`}
-          dot="bg-gray-400"
-        />
-      </div>
-
       {/* Kanban Board */}
-      <div className="overflow-x-auto pb-4">
-        <div className="flex gap-4 min-w-max">
-          {KANBAN_STATUS.map(status => {
-            const cfg   = STATUS_CONFIG[status];
-            const cards = byStatus[status] ?? [];
-            return (
-              <div key={status} className="w-64 shrink-0">
-                {/* Spalten-Header */}
-                <div className={[
-                  "flex items-center justify-between px-3 py-2 rounded-t-xl border-t-2 border-x border-gray-100 bg-gray-50",
-                  cfg.kanbanBorder,
-                ].join(" ")}>
-                  <div className="flex items-center gap-2">
-                    <span className={["w-2 h-2 rounded-full", cfg.dot].join(" ")} />
-                    <span className="text-[11.5px] font-semibold text-gray-700">{cfg.label}</span>
-                  </div>
-                  <span className={[
-                    "text-[10.5px] font-bold px-1.5 py-0.5 rounded-md",
-                    cards.length > 0 ? `${cfg.bg} ${cfg.color}` : "text-gray-300 bg-gray-100",
-                  ].join(" ")}>
-                    {cards.length}
-                  </span>
-                </div>
-
-                {/* Karten */}
-                <div className="border-x border-b border-gray-100 rounded-b-xl bg-gray-50/50 p-2 space-y-2 min-h-[100px]">
-                  {cards.length === 0 ? (
-                    <div className="flex items-center justify-center h-16 text-[11px] text-gray-300 border border-dashed border-gray-200 rounded-lg">
-                      Leer
-                    </div>
-                  ) : (
-                    cards.map(repair => (
-                      <RepairCard key={repair.id} repair={repair} onStatusChange={handleStatusChange} />
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      <DndContext id="starphone-board" sensors={sensors}
+        onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
+        onDragEnd={async (e: DragEndEvent) => {
+          setActiveId(null);
+          const next = STATUS_COLUMNS.find((s) => s === e.over?.id);
+          if (next) await updateStatus(String(e.active.id), next);
+        }}
+      >
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-2.5 min-w-max">
+            {grouped.map((col) => (
+              <BoardColumn key={col.status} status={col.status} items={col.items} savingId={savingId} onStatusChange={updateStatus} />
+            ))}
+          </div>
         </div>
-      </div>
+        <DragOverlay dropAnimation={{ duration: 120, easing: "ease" }}>
+          {activeRepair && <div className="w-[220px]"><RepairCard repair={activeRepair} saving={false} overlay /></div>}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }

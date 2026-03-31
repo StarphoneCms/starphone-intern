@@ -6,17 +6,18 @@ import { createServerComponentClient } from "@/lib/supabase/server";
 import DashboardClient, { type DashboardRepair } from "./DashboardClient";
 import StatistikClient from "./StatistikClient";
 
+// Neue 7 DB-Werte → Board-Labels mappen
 function normalizeStatus(status: string | null): DashboardRepair["boardStatus"] {
-  const value = (status ?? "").trim().toLowerCase();
-  if (["angenommen", "offen", "neu"].includes(value))                       return "Angenommen";
-  if (["in_diagnose", "in diagnose", "diagnose"].includes(value))           return "In Diagnose";
-  if (["rueckfrage_kunde", "rückfrage kunde"].includes(value))              return "Rückfrage Kunde";
-  if (["ersatzteil_bestellt", "ersatzteil bestellt"].includes(value))       return "Ersatzteil bestellt";
-  if (["in_reparatur", "in reparatur", "in_arbeit"].includes(value))        return "In Reparatur";
-  if (["abholbereit", "fertig"].includes(value))                            return "Abholbereit";
-  if (["abgeschlossen", "abgeholt"].includes(value))                        return "Abgeschlossen";
-  if (value === "storniert")                                                 return "Storniert";
-  return "Angenommen";
+  switch ((status ?? "").trim().toLowerCase()) {
+    case "in_reparatur":       return "In Reparatur";
+    case "warten_ersatzteile": return "Warten Ersatzteile";
+    case "warten_kunde":       return "Warten Kunde";
+    case "aussendienst":       return "Außendienst";
+    case "nicht_moeglich":     return "Nicht möglich";
+    case "abholbereit":        return "Abholbereit";
+    case "abgeschlossen":      return "Abgeschlossen";
+    default:                   return "In Reparatur";
+  }
 }
 
 function getMonthLabel(dateStr: string) {
@@ -59,21 +60,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     boardStatus: normalizeStatus(r.status),
   }));
 
-  // ── Statistik Daten ──────────────────────────────────────────────────────
+  // ── Statistik Daten ──────────────────────────────────────────────────────────
   const STATUS_CFG = [
-    { name: "Angenommen",          color: "#D97706" },
-    { name: "In Diagnose",         color: "#2563EB" },
-    { name: "Rückfrage Kunde",     color: "#DC2626" },
-    { name: "Ersatzteil bestellt", color: "#7C3AED" },
-    { name: "In Reparatur",        color: "#4338CA" },
-    { name: "Abholbereit",         color: "#059669" },
-    { name: "Abgeschlossen",       color: "#6B7280" },
+    { name: "In Reparatur",       color: "#6366F1" },
+    { name: "Warten Ersatzteile", color: "#F59E0B" },
+    { name: "Warten Kunde",       color: "#F97316" },
+    { name: "Außendienst",        color: "#8B5CF6" },
+    { name: "Nicht möglich",      color: "#EF4444" },
+    { name: "Abholbereit",        color: "#10B981" },
+    { name: "Abgeschlossen",      color: "#9CA3AF" },
   ];
   const statusData = STATUS_CFG.map((s) => ({
     ...s, count: items.filter((r) => r.boardStatus === s.name).length,
   }));
 
-  // Reparaturarten (geraetetyp)
   const problemMap: Record<string, number> = {};
   allRepairs.forEach((r) => {
     const key = (r.geraetetyp ?? "Sonstiges").trim();
@@ -155,7 +155,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
         {/* Content */}
         {activeTab === "werkstatt" ? (
-          // DashboardClient enthält KPI Cards + Board, beide live
           <DashboardClient initialItems={items} />
         ) : (
           <StatistikClient
