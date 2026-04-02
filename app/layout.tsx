@@ -49,10 +49,12 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 overflow-x-hidden`}
       >
         <AppHeader />
-        {children}
+        <div className="overflow-x-hidden w-full">
+          {children}
+        </div>
       </body>
     </html>
   );

@@ -723,8 +723,8 @@ export default function PriceListPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="max-w-[1600px] mx-auto px-5 py-7">
+    <main className="min-h-screen bg-white overflow-x-hidden">
+      <div className="max-w-[1600px] mx-auto px-3 md:px-5 py-4 md:py-7">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-6">
@@ -735,8 +735,8 @@ export default function PriceListPage() {
         </div>
 
         {/* Kategorie + Hersteller Tabs */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-4 overflow-x-auto pb-1">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 shrink-0">
             {KATEGORIEN.map(k => (
               <button key={k.key} onClick={() => { setAktKat(k.key); setSearch(""); setSelections([]); }}
                 className={["h-7 px-4 rounded-md text-[12px] font-medium transition-colors",
@@ -773,7 +773,7 @@ export default function PriceListPage() {
         </div>
 
         {/* Layout: Tabelle + Kalkulator nebeneinander */}
-        <div className={["flex gap-5 items-start transition-all", selections.length > 0 ? "" : ""].join(" ")}>
+        <div className="flex gap-5 items-start w-full overflow-x-hidden">
 
           {/* ── Preistabelle ── */}
           <div className="flex-1 min-w-0">

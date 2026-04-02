@@ -140,18 +140,15 @@ export default function AppHeader() {
         </div>
       </header>
 
-      {/* ── Mobile Top Bar (< md) ── */}
+      {/* ── Mobile Top Bar (< md, nicht auf Login) ── */}
+      {pathname !== "/login" && (
       <header className="fixed top-0 inset-x-0 z-50 h-14 bg-white border-b border-gray-100 flex md:hidden items-center px-4 justify-between">
         <Link href="/dashboard">
           <img src="/icons/logo.png" alt="Starphone" style={{ height: 24, width: "auto" }} />
         </Link>
-
-        {/* Aktuelle Seite als Titel */}
         <span className="text-[14px] font-semibold text-gray-900">
           {NAV_ITEMS.find(n => isActive(n.href))?.label ?? "Starphone"}
         </span>
-
-        {/* Neuer Auftrag + Avatar */}
         <div className="flex items-center gap-2">
           <Link href="/repairs/new"
             className="h-8 w-8 rounded-full bg-black flex items-center justify-center text-white hover:bg-gray-800 transition-colors">
@@ -183,13 +180,15 @@ export default function AppHeader() {
           </div>
         </div>
       </header>
+      )}
 
-      {/* ── Spacer für Desktop Header ── */}
+      {/* ── Spacer Desktop ── */}
       <div className="hidden md:block h-12" />
-      {/* ── Spacer für Mobile Top Bar ── */}
-      <div className="md:hidden h-14" />
+      {/* ── Spacer Mobile Top Bar (nicht auf Login) ── */}
+      {pathname !== "/login" && <div className="md:hidden h-14" />}
 
-      {/* ── Mobile Bottom Tab Bar ── */}
+      {/* ── Mobile Bottom Tab Bar (nicht auf Login-Seite) ── */}
+      {pathname !== "/login" && (
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-100"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="flex">
@@ -197,7 +196,7 @@ export default function AppHeader() {
             const active = isActive(item.href);
             return (
               <Link key={item.href} href={item.href}
-                className={["flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors",
+                className={["flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors relative",
                   active ? "text-black" : "text-gray-400"].join(" ")}>
                 {item.icon(active)}
                 <span className={["text-[10px] font-medium leading-none",
@@ -210,9 +209,10 @@ export default function AppHeader() {
           })}
         </div>
       </nav>
+      )}
 
-      {/* ── Spacer für Bottom Tab Bar ── */}
-      <div className="md:hidden h-16" />
+      {/* ── Spacer für Bottom Tab Bar (nicht auf Login) ── */}
+      {pathname !== "/login" && <div className="md:hidden h-16" />}
     </>
   );
 }
