@@ -605,12 +605,14 @@ export function NewRepairForm() {
                       <span className="text-[11.5px] font-medium text-gray-700 shrink-0">{r.preis.toFixed(2)} €</span>
                     </div>
                   ))}
-                  {reparaturPreis > 0 && (
-                    <div className="flex items-baseline justify-between gap-2 pt-1">
-                      <span className="text-[11.5px] text-gray-700 font-medium">Reparatur</span>
-                      <span className="text-[12px] font-semibold text-gray-900">{reparaturPreis.toFixed(2)} €</span>
-                    </div>
-                  )}
+               {reparaturPreis > 0 && urlReps.length === 0 && (
+  <div className="flex items-baseline justify-between gap-2 pt-1">
+    <span className="text-[11px] text-gray-500 truncate max-w-[160px]">
+      {problem ? problem.split("\n")[0] : "Reparatur"}
+    </span>
+    <span className="text-[12px] font-semibold text-gray-900">{reparaturPreis.toFixed(2)} €</span>
+  </div>
+)}
                   {zusatzItems.map(item => (
                     <div key={item.id} className="flex items-baseline justify-between gap-2">
                       <span className="text-[11px] text-gray-500 truncate">{item.label} {item.variante}</span>

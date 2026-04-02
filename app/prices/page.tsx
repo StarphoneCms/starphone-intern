@@ -2,7 +2,7 @@
 
 // Pfad: src/app/prices/page.tsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -419,6 +419,137 @@ function ModellnummerCell({ value, itemId, onSave }: {
   );
 }
 
+// ─── Mobile Accordion (iPhone/iPad) ──────────────────────────────────────────
+
+function MobilePreisliste({ items, columns, onSelect, selections, onSave }: {
+  items: PriceItem[];
+  columns: ColDef[];
+  onSelect: (sel: Selection) => void;
+  selections: Selection[];
+  onSave: (id: string, field: string, value: number | null) => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  // Gruppen für die mobile Darstellung (nur Spalten mit Wert anzeigen)
+  function getGroups(item: PriceItem) {
+    const groups: { group: string; cols: (ColDef & { value: number | null })[] }[] = [];
+    for (const col of columns) {
+      const value = item[col.key as keyof PriceItem] as number | null;
+      if (value == null) continue; // leer → weglassen auf Mobile
+      const existing = groups.find(g => g.group === col.group);
+      if (existing) existing.cols.push({ ...col, value });
+      else groups.push({ group: col.group, cols: [{ ...col, value }] });
+    }
+    return groups;
+  }
+
+  if (items.length === 0) {
+    return <div className="text-center py-12 text-[13px] text-gray-400">Keine Modelle gefunden.</div>;
+  }
+
+  return (
+    <div className="space-y-1.5 px-0">
+      {items.map(item => {
+        const isOpen = openId === item.id;
+        const groups = getGroups(item);
+        const selectedForItem = selections.filter(s => s.modell === item.modell && s.hersteller === item.hersteller);
+        const total = selectedForItem.reduce((s, r) => s + r.preis, 0);
+
+        return (
+          <div key={item.id} className={["rounded-2xl border overflow-hidden transition-all",
+            isOpen ? "border-black" : "border-gray-100"].join(" ")}>
+
+            {/* Header */}
+            <button
+              onClick={() => setOpenId(isOpen ? null : item.id)}
+              className={["w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors",
+                isOpen ? "bg-black text-white" : "bg-white"].join(" ")}>
+              <div className="min-w-0">
+                <p className={["text-[15px] font-semibold truncate", isOpen ? "text-white" : "text-gray-900"].join(" ")}>
+                  {item.modell}
+                </p>
+                {item.modellnummer && (
+                  <p className={["text-[11px] font-mono mt-0.5", isOpen ? "text-white/60" : "text-gray-400"].join(" ")}>
+                    {item.modellnummer}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                {selectedForItem.length > 0 && (
+                  <span className={["text-[12px] font-semibold px-2 py-0.5 rounded-full",
+                    isOpen ? "bg-white/20 text-white" : "bg-black text-white"].join(" ")}>
+                    {selectedForItem.length}× · {total.toFixed(0)} €
+                  </span>
+                )}
+                <svg className={["transition-transform", isOpen ? "rotate-180" : ""].join(" ")}
+                  width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 6l4 4 4-4" stroke={isOpen ? "white" : "#9ca3af"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </button>
+
+            {/* Accordion Content */}
+            {isOpen && (
+              <div className="bg-white divide-y divide-gray-50">
+                {groups.map(group => (
+                  <div key={group.group} className="px-4 py-3">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2.5">
+                      {group.group}
+                    </p>
+                    <div className="space-y-1.5">
+                      {group.cols.map(col => {
+                        const isSelected = selections.some(s =>
+                          s.field === col.key && s.modell === item.modell && s.hersteller === item.hersteller);
+                        return (
+                          <button
+                            key={col.key}
+                            onClick={() => onSelect({
+                              modell: item.modell,
+                              hersteller: item.hersteller,
+                              field: col.key,
+                              label: `${group.group} ${col.label}`.trim(),
+                              preis: col.value!,
+                            })}
+                            onDoubleClick={() => {}}
+                            className={["w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-all",
+                              isSelected
+                                ? "bg-black border-black text-white"
+                                : col.recommended
+                                  ? "bg-amber-50 border-amber-100 text-amber-800"
+                                  : "bg-gray-50 border-gray-100 text-gray-700 active:bg-gray-100"].join(" ")}>
+                            <div className="flex items-center gap-2">
+                              <span className={["text-[13px] font-medium",
+                                isSelected ? "text-white" : ""].join(" ")}>
+                                {col.label}
+                              </span>
+                              {col.recommended && !isSelected && (
+                                <span className="text-[9px] font-semibold bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                                  Empfohlen
+                                </span>
+                              )}
+                              {col.note && !isSelected && (
+                                <span className="text-[10px] text-amber-600">{col.note}</span>
+                              )}
+                            </div>
+                            <span className={["text-[15px] font-bold",
+                              isSelected ? "text-white" : col.recommended ? "text-amber-700" : "text-gray-900"].join(" ")}>
+                              {col.value!.toFixed(0)} €
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function PriceListPage() {
@@ -431,7 +562,9 @@ export default function PriceListPage() {
   const [aktTabId, setAktTabId] = useState("Apple");
   const [saving, setSaving]     = useState<string | null>(null);
   const [selections, setSelections] = useState<Selection[]>([]);
-  const [linsenMenge, setLinsenMenge] = useState<Record<string, number>>({}); // key: itemId
+  const [linsenMenge, setLinsenMenge] = useState<Record<string, number>>({});
+  const [hoveredCol, setHoveredCol] = useState<string | null>(null);
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -646,32 +779,56 @@ export default function PriceListPage() {
           <div className="flex-1 min-w-0">
             {loading ? (
               <div className="flex items-center justify-center h-40 text-[12px] text-gray-300">Lade Preisliste …</div>
-            ) : filtered.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-[12px] text-gray-400">Keine Modelle gefunden.</div>
             ) : (
-              <div className="rounded-xl border border-gray-100 overflow-x-auto">
+              <>
+                {/* Mobile Accordion (< md) */}
+                <div className="md:hidden">
+                  <MobilePreisliste
+                    items={filtered}
+                    columns={columns}
+                    onSelect={handleSelect}
+                    selections={selections}
+                    onSave={handleSave}
+                  />
+                </div>
+
+                {/* Desktop Tabelle (md+) */}
+                <div className="hidden md:block">
+                  {filtered.length === 0 ? (
+                    <div className="flex items-center justify-center h-40 text-[12px] text-gray-400">Keine Modelle gefunden.</div>
+                  ) : (
+              <div className="rounded-xl border border-gray-100 overflow-auto max-h-[calc(100vh-220px)]">
                 <table className="border-collapse w-max min-w-full text-sm">
-                  <thead>
+                  <thead className="sticky top-0 z-30">
                     <tr className="border-b border-gray-100">
-                      <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2.5 min-w-[220px] border-r border-gray-100" />
-                      {groupHeaders.map((g, i) => (
-                        <th key={i} colSpan={g.span}
-                          className={["px-3 py-2 text-[10.5px] font-semibold tracking-widest uppercase text-center border-x",
-                            GROUP_COLORS[g.label]?.header ?? "bg-gray-50 text-gray-400 border-gray-100"].join(" ")}>
-                          {g.label}
-                        </th>
-                      ))}
+                      <th className="sticky left-0 z-40 bg-gray-50 px-4 py-2.5 min-w-[220px] border-r border-gray-100" />
+                      {groupHeaders.map((g, i) => {
+                        // Prüfen ob hoveredCol zu dieser Gruppe gehört
+                        const colsInGroup = columns.filter(c => c.group === g.label);
+                        const isGroupHovered = hoveredCol !== null && colsInGroup.some(c => c.key === hoveredCol);
+                        return (
+                          <th key={i} colSpan={g.span}
+                            className={["px-3 py-2 text-[10.5px] font-semibold tracking-widest uppercase text-center border-x transition-colors",
+                              isGroupHovered
+                                ? "bg-indigo-200 text-indigo-800 border-indigo-200"
+                                : GROUP_COLORS[g.label]?.header ?? "bg-gray-50 text-gray-400 border-gray-100"].join(" ")}>
+                            {g.label}
+                          </th>
+                        );
+                      })}
                     </tr>
                     <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="sticky left-0 z-20 bg-gray-50 px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider min-w-[220px] border-r border-gray-100">
+                      <th className="sticky left-0 z-40 bg-gray-50 px-4 py-2.5 text-left text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider min-w-[220px] border-r border-gray-100">
                         Modell
                       </th>
                       {columns.map(col => (
                         <th key={col.key}
-                          className={["px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap min-w-[88px] border-x border-gray-100",
+                          className={["px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap min-w-[88px] border-x border-gray-100 transition-colors",
                             col.recommended
-                              ? "bg-amber-50 text-amber-700 border-amber-100"
-                              : (GROUP_COLORS[col.group]?.cell ?? "") + " text-gray-400",
+                              ? hoveredCol === col.key ? "bg-amber-300 text-amber-900 border-amber-300" : "bg-amber-50 text-amber-700 border-amber-100"
+                              : hoveredCol === col.key
+                                ? "bg-indigo-200 text-indigo-800 border-indigo-200"
+                                : (GROUP_COLORS[col.group]?.cell ?? "") + " text-gray-400 bg-gray-50",
                           ].join(" ")}>
                           <div className="flex flex-col items-center gap-0.5">
                             <span>{col.label}</span>
@@ -693,12 +850,13 @@ export default function PriceListPage() {
                       const isActiveModell = activeModell === item.modell && activeItemHersteller === item.hersteller;
                       return (
                         <tr key={item.id}
-                          className={["transition-colors",
-                            saving === item.id ? "opacity-50" : "",
-                            isActiveModell ? "bg-blue-50/40" : rowIdx % 2 !== 0 ? "bg-gray-50/50" : "",
-                            "hover:bg-gray-50"].join(" ")}>
-                          <td className={["sticky left-0 z-10 px-4 py-2 border-r border-gray-100",
-                            isActiveModell ? "bg-blue-50" : "bg-white"].join(" ")}>
+                          onMouseEnter={() => setHoveredRow(item.id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          className={["transition-colors", saving === item.id ? "opacity-50" : ""].join(" ")}>
+                          {/* Modell-Zelle — Zeilen-Highlight */}
+                          <td className={["sticky left-0 z-10 px-4 py-2 border-r border-gray-100 transition-colors",
+                            isActiveModell ? "bg-blue-50" :
+                            hoveredRow === item.id ? "bg-indigo-50" : "bg-white"].join(" ")}>
                             <div className="flex flex-col gap-0.5">
                               <span className={["text-[13px] font-semibold whitespace-nowrap",
                                 isActiveModell ? "text-blue-900" : "text-gray-900"].join(" ")}>
@@ -712,13 +870,27 @@ export default function PriceListPage() {
                           </td>
                           {columns.map(col => {
                             const isSelected = selections.some(s => s.field === col.key && s.modell === item.modell && s.hersteller === item.hersteller);
+                            const isRowHovered = hoveredRow === item.id;
+                            const isColHovered = hoveredCol === col.key;
+                            const isIntersect  = isRowHovered && isColHovered;
 
-                            // Kameralinse bekommt eigene Zelle
+                            // Crosshair Farbe berechnen
+                            function getCellBg(): string {
+                              if (isIntersect) return "bg-indigo-200/90"; // Kreuzpunkt — stark sichtbar
+                              if (isRowHovered) return col.recommended ? "bg-amber-100/80" : "bg-indigo-50/60";
+                              if (isColHovered) return col.recommended ? "bg-amber-200/70" : "bg-slate-200/60";
+                              if (isActiveModell) return col.recommended ? "bg-amber-50/40" : "bg-blue-50/20";
+                              return col.recommended ? "bg-amber-50/40" : (GROUP_COLORS[col.group]?.cell ?? "");
+                            }
+
+                            // Kameralinse
                             if (col.key === "kameralinse") {
                               const menge = linsenMenge[item.id] ?? 0;
                               return (
                                 <td key={col.key}
-                                  className={(GROUP_COLORS[col.group]?.cell ?? "") + " border-x border-gray-50 px-0 py-0"}>
+                                  onMouseEnter={() => setHoveredCol(col.key)}
+                                  onMouseLeave={() => setHoveredCol(null)}
+                                  className={["border-x border-gray-50 px-0 py-0 transition-colors", getCellBg()].join(" ")}>
                                   <LinsenCell
                                     basePreis={item.kameralinse}
                                     modell={item.modell}
@@ -734,9 +906,11 @@ export default function PriceListPage() {
 
                             return (
                               <td key={col.key}
-                                className={["px-1 py-1 border-x",
-                                  col.recommended ? "bg-amber-50/40 border-amber-100"
-                                    : (GROUP_COLORS[col.group]?.cell ?? "") + " border-gray-50"].join(" ")}>
+                                onMouseEnter={() => setHoveredCol(col.key)}
+                                onMouseLeave={() => setHoveredCol(null)}
+                                className={["px-1 py-1 border-x transition-colors",
+                                  getCellBg(),
+                                  col.recommended ? "border-amber-100" : "border-gray-50"].join(" ")}>
                                 <PriceCell
                                   value={item[col.key as keyof PriceItem] as number | null}
                                   itemId={item.id} field={col.key} label={col.label}
@@ -753,12 +927,15 @@ export default function PriceListPage() {
                   </tbody>
                 </table>
               </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
-          {/* ── Kalkulator Panel ── */}
+          {/* ── Kalkulator Panel Desktop (md+) ── */}
           {selections.length > 0 && (
-            <div className="w-72 flex-shrink-0 sticky top-5">
+            <div className="hidden md:block w-72 flex-shrink-0 sticky top-5">
               <div className="rounded-2xl border border-gray-100 bg-white shadow-lg overflow-hidden">
 
                 {/* Header */}
@@ -890,6 +1067,54 @@ export default function PriceListPage() {
             </div>
           )}
         </div>
+
+        {/* ── Kalkulator Mobile Bottom Bar ── */}
+        {selections.length > 0 && (
+          <div className="md:hidden fixed bottom-16 inset-x-0 z-40 px-3 pb-2">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
+              <div className="px-4 pt-3 pb-2 space-y-1 max-h-36 overflow-y-auto">
+                {selections.map((s) => {
+                  const isCheapest = selections.length >= 2 && s === cheapest;
+                  return (
+                    <div key={s.field} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <button onClick={() => setSelections(prev => prev.filter(p => p.field !== s.field))}
+                          className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0">
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                            <line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                            <line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                        <span className="text-[12px] text-gray-700 truncate">{s.label}</span>
+                        {isCheapest && <span className="text-[10px] text-green-600 font-medium shrink-0">-25%</span>}
+                      </div>
+                      <span className={["text-[12px] font-semibold shrink-0", isCheapest ? "line-through text-gray-300" : "text-gray-900"].join(" ")}>
+                        {s.preis.toFixed(0)} €
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Gesamt</p>
+                  <p className="text-[18px] font-bold text-black">{total.toFixed(2)} €</p>
+                  {(autoDiscount > 0 || extraAmt > 0) && (
+                    <p className="text-[10px] text-green-600">-{(autoDiscount + extraAmt).toFixed(2)} € gespart</p>
+                  )}
+                </div>
+                <button onClick={handleWhatsApp}
+                  className="h-10 px-3 rounded-xl bg-green-600 text-white text-[12px] font-medium">
+                  WhatsApp
+                </button>
+                <button onClick={handleStartRepair}
+                  className="h-10 px-4 rounded-xl bg-black text-white text-[12px] font-medium">
+                  + Auftrag
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
