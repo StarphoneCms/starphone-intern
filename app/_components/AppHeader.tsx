@@ -74,7 +74,8 @@ export default function AppHeader() {
   return (
     <>
       {/* ── Desktop / iPad Header (md+) ── */}
-      <header className="fixed top-0 inset-x-0 z-50 h-12 bg-white border-b border-gray-100 hidden md:block">
+      {/* ── Desktop Header (md+) ── */}
+      <header className="fixed top-0 inset-x-0 z-50 h-12 bg-white border-b border-gray-100 hidden md:flex items-center w-full">
         <div className="flex items-center h-full px-4 gap-5 max-w-[1600px] mx-auto">
 
           <Link href="/dashboard" className="flex items-center shrink-0">
