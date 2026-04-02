@@ -38,8 +38,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de" style={{ background: "white" }}>
+    <html lang="de" style={{ colorScheme: "light" }}>
       <head>
+        <style>{`
+          html { color-scheme: light; }
+          body { background: white; }
+          @media (max-width: 767px) {
+            main { padding-bottom: 5rem; }
+          }
+        `}</style>
         <meta name="theme-color" content="#ffffff" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

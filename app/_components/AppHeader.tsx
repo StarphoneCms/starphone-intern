@@ -183,10 +183,12 @@ export default function AppHeader() {
       </header>
       )}
 
-      {/* ── Spacer Desktop ── */}
-      <div className="hidden md:block h-12" style={{ background: "white" }} />
-      {/* ── Spacer Mobile Top Bar (nicht auf Login) ── */}
-      {pathname !== "/login" && <div className="md:hidden h-14" style={{ background: "white" }} />}
+      {/* ── Einziger Spacer für fixed Header ── */}
+      {pathname !== "/login" && (
+        <>
+          <div className="h-14 md:h-12" />
+        </>
+      )}
 
       {/* ── Mobile Bottom Tab Bar (nicht auf Login-Seite) ── */}
       {pathname !== "/login" && (
@@ -213,7 +215,6 @@ export default function AppHeader() {
       )}
 
       {/* ── Spacer für Bottom Tab Bar (nicht auf Login) ── */}
-      {pathname !== "/login" && <div className="md:hidden h-16" />}
     </>
   );
 }
