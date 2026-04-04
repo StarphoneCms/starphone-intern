@@ -391,6 +391,20 @@ export default function InventoryPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Live Updates: Inventar automatisch aktualisieren ──
+  useEffect(() => {
+    const channel = supabase
+      .channel("inventory-realtime")
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "inventory" },
+        () => { load(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase, load]);
+
   // Gerätetyp-Statistik
   const typeCounts = [...GERAETETYPEN].reduce((acc, typ) => {
     acc[typ] = items.filter(i =>

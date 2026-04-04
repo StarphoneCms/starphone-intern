@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RepairListItem } from "./page";
 import { StatusPill, RepairStatus } from "@/lib/repair-types";
+import { useRealtime } from "@/hooks/useRealtime";
 
 const FILTER_TABS: { key: string; label: string }[] = [
   { key: "alle",                label: "Alle"          },
@@ -59,6 +60,14 @@ export default function RepairsClient({
   const router = useRouter();
   const [filter, setFilter] = useState("alle");
   const [search, setSearch] = useState("");
+
+  // ── Live Updates: Daten automatisch aktualisieren ──
+  useRealtime({
+    table: "repairs",
+    onInsert: () => router.refresh(),
+    onUpdate: () => router.refresh(),
+    onDelete: () => router.refresh(),
+  });
 
   const filtered = useMemo(() => {
     return initialRepairs.filter((r) => {

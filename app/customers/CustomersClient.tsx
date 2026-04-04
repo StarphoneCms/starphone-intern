@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusPill, RepairStatus } from "@/lib/repair-types";
+import { useRealtime } from "@/hooks/useRealtime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,11 @@ export default function CustomersClient({ customers, totalOpenRepairs }: Props) 
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"alle" | "offen" | "neu">("alle");
+
+  // ── Live Updates: Kunden + Reparaturen automatisch aktualisieren ──
+  const refresh = () => router.refresh();
+  useRealtime({ table: "customers", onInsert: refresh, onUpdate: refresh, onDelete: refresh });
+  useRealtime({ table: "repairs",   onInsert: refresh, onUpdate: refresh, onDelete: refresh });
 
   const filtered = useMemo(() => {
     return customers.filter((c) => {
