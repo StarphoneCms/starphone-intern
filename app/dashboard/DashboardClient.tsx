@@ -123,14 +123,15 @@ function use3DCard() {
 // ─── Live Indicator ───────────────────────────────────────────────────────────
 
 function LiveIndicator() {
-  const [pulse, setPulse] = useState(true);
+  const [pulse, setPulse] = useState(false);
   useEffect(() => {
+    setPulse(true);
     const t = setInterval(() => setPulse(p => !p), 2000);
     return () => clearInterval(t);
   }, []);
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`w-2 h-2 rounded-full bg-green-500 transition-opacity ${pulse ? "opacity-100" : "opacity-40"}`} />
+      <span className={`w-2 h-2 rounded-full bg-green-500 transition-opacity duration-700 ${pulse ? "opacity-100" : "opacity-30"}`} />
       <span className="text-[11px] text-green-600 font-medium">Live</span>
     </div>
   );
@@ -293,8 +294,8 @@ export default function DashboardClient({ initialItems }: { initialItems: Dashbo
     const channel = supabase
       .channel("dashboard-repairs")
       .on(
-        // @ts-expect-error supabase types
-        "postgres_changes",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
         { event: "*", schema: "public", table: "repairs" },
         (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
           const { eventType } = payload;

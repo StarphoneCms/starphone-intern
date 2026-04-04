@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import "./globals.css"; // eslint-disable-next-line
 import AppHeader from "./_components/AppHeader";
 
 const geistSans = Geist({
