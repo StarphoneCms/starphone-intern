@@ -1,54 +1,37 @@
-// Pfad: src/hooks/useRealtime.ts
+// Pfad: hooks/useRealtime.ts
 "use client";
 
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/browser";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 type Table = "repairs" | "customers" | "inventory" | "price_list";
-type Event = "INSERT" | "UPDATE" | "DELETE" | "*";
 
-type Options<T extends Record<string, unknown>> = {
+type Options = {
   table: Table;
-  event?: Event;
-  filter?: string; // z.B. "id=eq.123"
-  onInsert?: (row: T) => void;
-  onUpdate?: (row: T) => void;
-  onDelete?: (row: T) => void;
-  onChange?: (payload: RealtimePostgresChangesPayload<T>) => void;
+  onInsert?: (row: Record<string, unknown>) => void;
+  onUpdate?: (row: Record<string, unknown>) => void;
+  onDelete?: (row: Record<string, unknown>) => void;
 };
 
-export function useRealtime<T extends Record<string, unknown>>(opts: Options<T>) {
+export function useRealtime(opts: Options) {
   const supabase = createClient();
   const optsRef  = useRef(opts);
   optsRef.current = opts;
 
   useEffect(() => {
-    const channelName = `realtime-${opts.table}-${Math.random().toString(36).slice(2)}`;
-
     const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes" as Parameters<typeof channel.on>[0],
-        {
-          event: optsRef.current.event ?? "*",
-          schema: "public",
-          table: optsRef.current.table,
-          ...(optsRef.current.filter ? { filter: optsRef.current.filter } : {}),
-        },
-        (payload: RealtimePostgresChangesPayload<T>) => {
-          const { eventType } = payload;
-          optsRef.current.onChange?.(payload);
-          if (eventType === "INSERT") optsRef.current.onInsert?.(payload.new as T);
-          if (eventType === "UPDATE") optsRef.current.onUpdate?.(payload.new as T);
-          if (eventType === "DELETE") optsRef.current.onDelete?.(payload.old as T);
+      .channel(`realtime-${opts.table}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: optsRef.current.table },
+        (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+          if (payload.eventType === "INSERT") optsRef.current.onInsert?.(payload.new);
+          if (payload.eventType === "UPDATE") optsRef.current.onUpdate?.(payload.new);
+          if (payload.eventType === "DELETE") optsRef.current.onDelete?.(payload.old);
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.table]);
 }
