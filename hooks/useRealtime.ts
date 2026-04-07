@@ -4,7 +4,7 @@
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
-type Table = "repairs" | "customers" | "inventory" | "price_list" | "repair_notes";
+type Table = "repairs" | "customers" | "inventory" | "price_list" | "repair_notes" | "documents";
 
 type Options = {
   table: Table;
