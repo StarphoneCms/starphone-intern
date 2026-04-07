@@ -250,9 +250,9 @@ export default function EditDocumentForm({
       due_date: dueDate || null,
       customer_id: selectedCustomer?.id ?? null,
       customer_name: name,
-      customer_email: selectedCustomer?.email ?? manualCustomer.email || null,
-      customer_phone: selectedCustomer?.phone ?? manualCustomer.phone || null,
-      customer_address: selectedCustomer?.address ?? manualCustomer.address || null,
+      customer_email: (selectedCustomer?.email ?? manualCustomer.email) || null,
+      customer_phone: (selectedCustomer?.phone ?? manualCustomer.phone) || null,
+      customer_address: (selectedCustomer?.address ?? manualCustomer.address) || null,
       customer_tax_id: manualCustomer.tax_id || null,
       items: items.map((item) => ({
         position: item.position,
