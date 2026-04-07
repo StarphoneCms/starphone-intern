@@ -14,6 +14,14 @@ const NAV_ITEMS = [
       <rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
     </svg>
   )},
+  { href: "/documents", label: "Dokumente", icon: (active: boolean) => (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M5 3h7l4 4v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
+      <path d="M12 3v4h4" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
+      <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+      <line x1="7" y1="13" x2="11" y2="13" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+    </svg>
+  )},
   { href: "/repairs", label: "Reparaturen", icon: (active: boolean) => (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M12 4l4 4-8 8-4-4 8-8z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
