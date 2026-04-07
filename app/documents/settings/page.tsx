@@ -7,36 +7,38 @@ import { createClient } from "@/lib/supabase/browser";
 type Settings = {
   id?: string;
   company_name: string;
-  street: string;
+  address_line1: string;
+  address_line2: string;
+  zip_code: string;
   city: string;
-  postal_code: string;
-  country: string;
-  tax_id: string;
-  vat_id: string;
+  phone: string;
+  email: string;
+  website: string;
+  tax_number: string;
+  ust_id: string;
   bank_name: string;
   iban: string;
   bic: string;
   logo_url: string;
   footer_text: string;
-  contact_email: string;
-  contact_phone: string;
 };
 
 const EMPTY: Settings = {
-  company_name: "",
-  street:        "",
+  company_name:  "",
+  address_line1: "",
+  address_line2: "",
+  zip_code:      "",
   city:          "",
-  postal_code:   "",
-  country:       "Deutschland",
-  tax_id:        "",
-  vat_id:        "",
+  phone:         "",
+  email:         "",
+  website:       "",
+  tax_number:    "",
+  ust_id:        "",
   bank_name:     "",
   iban:          "",
   bic:           "",
   logo_url:      "",
   footer_text:   "",
-  contact_email: "",
-  contact_phone: "",
 };
 
 const inputCls = "w-full h-8 px-3 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300";
@@ -72,19 +74,20 @@ export default function CompanySettingsPage() {
           setSettings({
             id:            data.id,
             company_name:  data.company_name  ?? "",
-            street:        data.street        ?? "",
+            address_line1: data.address_line1 ?? "",
+            address_line2: data.address_line2 ?? "",
+            zip_code:      data.zip_code      ?? "",
             city:          data.city          ?? "",
-            postal_code:   data.postal_code   ?? "",
-            country:       data.country       ?? "Deutschland",
-            tax_id:        data.tax_id        ?? "",
-            vat_id:        data.vat_id        ?? "",
+            phone:         data.phone         ?? "",
+            email:         data.email         ?? "",
+            website:       data.website       ?? "",
+            tax_number:    data.tax_number    ?? "",
+            ust_id:        data.ust_id        ?? "",
             bank_name:     data.bank_name     ?? "",
             iban:          data.iban          ?? "",
             bic:           data.bic           ?? "",
             logo_url:      data.logo_url      ?? "",
             footer_text:   data.footer_text   ?? "",
-            contact_email: data.contact_email ?? "",
-            contact_phone: data.contact_phone ?? "",
           });
         }
         setLoading(false);
@@ -104,19 +107,20 @@ export default function CompanySettingsPage() {
 
     const payload = {
       company_name:  settings.company_name  || null,
-      street:        settings.street        || null,
+      address_line1: settings.address_line1 || null,
+      address_line2: settings.address_line2 || null,
+      zip_code:      settings.zip_code      || null,
       city:          settings.city          || null,
-      postal_code:   settings.postal_code   || null,
-      country:       settings.country       || null,
-      tax_id:        settings.tax_id        || null,
-      vat_id:        settings.vat_id        || null,
+      phone:         settings.phone         || null,
+      email:         settings.email         || null,
+      website:       settings.website       || null,
+      tax_number:    settings.tax_number    || null,
+      ust_id:        settings.ust_id        || null,
       bank_name:     settings.bank_name     || null,
       iban:          settings.iban          || null,
       bic:           settings.bic           || null,
       logo_url:      settings.logo_url      || null,
       footer_text:   settings.footer_text   || null,
-      contact_email: settings.contact_email || null,
-      contact_phone: settings.contact_phone || null,
     };
 
     let error;
@@ -178,15 +182,22 @@ export default function CompanySettingsPage() {
             </div>
             <div>
               <label className={labelCls}>Straße + Hausnummer</label>
-              <input type="text" value={settings.street}
-                onChange={(e) => set("street", e.target.value)}
+              <input type="text" value={settings.address_line1}
+                onChange={(e) => set("address_line1", e.target.value)}
                 placeholder="Musterstraße 1"
                 className={inputCls} />
             </div>
             <div>
+              <label className={labelCls}>Adresszusatz</label>
+              <input type="text" value={settings.address_line2}
+                onChange={(e) => set("address_line2", e.target.value)}
+                placeholder=""
+                className={inputCls} />
+            </div>
+            <div>
               <label className={labelCls}>PLZ</label>
-              <input type="text" value={settings.postal_code}
-                onChange={(e) => set("postal_code", e.target.value)}
+              <input type="text" value={settings.zip_code}
+                onChange={(e) => set("zip_code", e.target.value)}
                 placeholder="12345"
                 className={inputCls} />
             </div>
@@ -198,24 +209,24 @@ export default function CompanySettingsPage() {
                 className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Land</label>
-              <input type="text" value={settings.country}
-                onChange={(e) => set("country", e.target.value)}
-                placeholder="Deutschland"
-                className={inputCls} />
-            </div>
-            <div>
               <label className={labelCls}>E-Mail</label>
-              <input type="email" value={settings.contact_email}
-                onChange={(e) => set("contact_email", e.target.value)}
+              <input type="email" value={settings.email}
+                onChange={(e) => set("email", e.target.value)}
                 placeholder="info@firma.de"
                 className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Telefon</label>
-              <input type="tel" value={settings.contact_phone}
-                onChange={(e) => set("contact_phone", e.target.value)}
+              <input type="tel" value={settings.phone}
+                onChange={(e) => set("phone", e.target.value)}
                 placeholder="+49 …"
+                className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Website</label>
+              <input type="url" value={settings.website}
+                onChange={(e) => set("website", e.target.value)}
+                placeholder="https://firma.de"
                 className={inputCls} />
             </div>
           </div>
@@ -226,15 +237,15 @@ export default function CompanySettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Steuernummer</label>
-              <input type="text" value={settings.tax_id}
-                onChange={(e) => set("tax_id", e.target.value)}
+              <input type="text" value={settings.tax_number}
+                onChange={(e) => set("tax_number", e.target.value)}
                 placeholder="12/345/67890"
                 className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>USt-IdNr.</label>
-              <input type="text" value={settings.vat_id}
-                onChange={(e) => set("vat_id", e.target.value)}
+              <input type="text" value={settings.ust_id}
+                onChange={(e) => set("ust_id", e.target.value)}
                 placeholder="DE123456789"
                 className={inputCls} />
             </div>

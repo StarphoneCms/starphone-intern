@@ -43,19 +43,20 @@ export interface DocumentItem {
 export interface CompanySettings {
   id?: string;
   company_name: string;
-  street?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  zip_code?: string | null;
   city?: string | null;
-  postal_code?: string | null;
-  country?: string | null;
-  tax_id?: string | null;
-  vat_id?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  tax_number?: string | null;
+  ust_id?: string | null;
   bank_name?: string | null;
   iban?: string | null;
   bic?: string | null;
   logo_url?: string | null;
   footer_text?: string | null;
-  contact_email?: string | null;
-  contact_phone?: string | null;
 }
 
 // ─── Doc Type Config ──────────────────────────────────────────────────────────

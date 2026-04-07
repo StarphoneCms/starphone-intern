@@ -26,19 +26,19 @@ export default async function DocumentPreviewPage({
   const company = settings ?? {};
 
   const companyName = (company as Record<string, string | null>).company_name ?? "Starphone";
-  const street      = (company as Record<string, string | null>).street ?? "";
+  const street      = (company as Record<string, string | null>).address_line1 ?? "";
   const postalCity  = [
-    (company as Record<string, string | null>).postal_code,
+    (company as Record<string, string | null>).zip_code,
     (company as Record<string, string | null>).city,
   ].filter(Boolean).join(" ");
-  const taxId     = (company as Record<string, string | null>).tax_id ?? "";
-  const vatId     = (company as Record<string, string | null>).vat_id ?? "";
+  const taxId     = (company as Record<string, string | null>).tax_number ?? "";
+  const vatId     = (company as Record<string, string | null>).ust_id ?? "";
   const bankName  = (company as Record<string, string | null>).bank_name ?? "";
   const iban      = (company as Record<string, string | null>).iban ?? "";
   const bic       = (company as Record<string, string | null>).bic ?? "";
   const footerTxt = (company as Record<string, string | null>).footer_text ?? "";
-  const contactEmail = (company as Record<string, string | null>).contact_email ?? "";
-  const contactPhone = (company as Record<string, string | null>).contact_phone ?? "";
+  const contactEmail = (company as Record<string, string | null>).email ?? "";
+  const contactPhone = (company as Record<string, string | null>).phone ?? "";
 
   return (
     <>
