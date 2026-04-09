@@ -67,14 +67,12 @@ export default async function DocumentDetailPage({
     <main className="min-h-screen bg-white">
       <div className="max-w-[1200px] mx-auto px-5 py-7">
 
-        {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 mb-5 text-[11.5px] text-gray-400">
           <Link href="/documents" className="hover:text-gray-700 transition-colors">Dokumente</Link>
           <span className="text-gray-200">/</span>
           <span className="font-mono text-gray-600">{doc.doc_number}</span>
         </nav>
 
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
           <div>
             <div className="flex flex-wrap items-center gap-2.5 mb-2">
@@ -102,22 +100,27 @@ export default async function DocumentDetailPage({
               )}
             </div>
           </div>
-          <DocumentActions doc={doc} />
+          {/* ── Nur primitive Felder übergeben ── */}
+          <DocumentActions
+            doc={{
+              id: String(doc.id),
+              doc_type: String(doc.doc_type),
+              doc_number: String(doc.doc_number),
+              status: String(doc.status),
+            }}
+          />
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           <div className="lg:col-span-2 space-y-4">
 
-            {/* Header note */}
             {doc.header_note && (
               <div className="px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
                 <p className="text-[11.5px] text-gray-500 italic">{doc.header_note}</p>
               </div>
             )}
 
-            {/* Items */}
             <SectionCard title={`Positionen (${docItems.length})`}>
               {docItems.length === 0 ? (
                 <p className="px-4 py-4 text-[12px] text-gray-400">Keine Positionen</p>
@@ -132,6 +135,7 @@ export default async function DocumentDetailPage({
                           <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Menge</th>
                           <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Einheit</th>
                           <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Einzelpreis</th>
+                          <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rabatt</th>
                           <th className="px-4 py-2 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Gesamt</th>
                         </tr>
                       </thead>
@@ -139,20 +143,35 @@ export default async function DocumentDetailPage({
                         {docItems.map((item) => (
                           <tr key={item.id}>
                             <td className="px-4 py-2.5 text-[11px] text-gray-400 font-mono">{item.position}</td>
-                            <td className="px-4 py-2.5 text-[12.5px] text-gray-900">{item.description}</td>
+                            <td className="px-4 py-2.5">
+                              <p className="text-[12.5px] text-gray-900">{item.description}</p>
+                              {item.details && (
+                                <p className="text-[11px] text-gray-400 mt-0.5">{item.details}</p>
+                              )}
+                            </td>
                             <td className="px-4 py-2.5 text-[12px] text-gray-700 text-right font-mono">{item.quantity}</td>
                             <td className="px-4 py-2.5 text-[11.5px] text-gray-500">{item.unit}</td>
                             <td className="px-4 py-2.5 text-[12px] text-gray-700 text-right font-mono">{formatMoney(item.unit_price)}</td>
+                            <td className="px-4 py-2.5 text-[12px] text-right font-mono">
+                              {item.discount > 0 ? (
+                                <span className="text-green-600">
+                                  -{item.discount_type === "percent"
+                                    ? `${item.discount}%`
+                                    : formatMoney(item.discount)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
                             <td className="px-4 py-2.5 text-[12px] font-semibold text-gray-900 text-right font-mono">{formatMoney(item.total)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {/* Totals */}
                   <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 flex flex-col items-end gap-1">
                     <div className="flex items-center gap-8">
-                      <span className="text-[11.5px] text-gray-500">Zwischensumme</span>
+                      <span className="text-[11.5px] text-gray-500">Zwischensumme (netto)</span>
                       <span className="font-mono text-[12px] text-gray-900 w-28 text-right">{formatMoney(doc.subtotal ?? 0)}</span>
                     </div>
                     <div className="flex items-center gap-8">
@@ -168,7 +187,6 @@ export default async function DocumentDetailPage({
               )}
             </SectionCard>
 
-            {/* Footer note */}
             {doc.footer_note && (
               <div className="px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
                 <p className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Fußtext</p>

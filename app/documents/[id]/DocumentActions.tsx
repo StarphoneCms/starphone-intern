@@ -90,7 +90,6 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
   return (
     <div className="flex flex-wrap items-center gap-2 shrink-0">
 
-      {/* PDF Vorschau — immer sichtbar */}
       <Link
         href={`/documents/${doc.id}/preview`}
         className={`${btnBase} border border-gray-200 text-gray-600 hover:bg-gray-50 gap-1.5`}
@@ -102,7 +101,6 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
         PDF
       </Link>
 
-      {/* Bearbeiten — nur Entwurf */}
       {status === "entwurf" && (
         <Link
           href={`/documents/${doc.id}/edit`}
@@ -115,7 +113,6 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
         </Link>
       )}
 
-      {/* Senden — nur Entwurf */}
       {status === "entwurf" && (
         <button
           disabled={loading === "send"}
@@ -129,7 +126,6 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
         </button>
       )}
 
-      {/* Als bezahlt markieren — nur Rechnungen mit Status gesendet */}
       {docType === "rechnung" && status === "gesendet" && (
         <button
           disabled={loading === "paid"}
@@ -140,7 +136,6 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
         </button>
       )}
 
-      {/* Umwandeln — wenn Ziele vorhanden */}
       {convertTargets.length > 0 && status !== "storniert" && (
         <div className="relative">
           <button
@@ -181,8 +176,7 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
         </div>
       )}
 
-      {/* Stornieren — nur gesendet */}
-      {(status === "gesendet") && (
+      {status === "gesendet" && (
         <button
           disabled={loading === "cancel"}
           onClick={handleCancel}
@@ -192,7 +186,6 @@ export default function DocumentActions({ doc }: { doc: DocData }) {
         </button>
       )}
 
-      {/* Löschen — nur Entwurf */}
       {status === "entwurf" && (
         <button
           disabled={loading === "delete"}
