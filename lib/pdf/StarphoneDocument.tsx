@@ -2,6 +2,7 @@
 import {
   Document, Page, Text, View, Image, StyleSheet, Font,
 } from "@react-pdf/renderer";
+import { STARPHONE_LOGO } from "./logo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ const s = StyleSheet.create({
   recipientSub: { fontSize: 8, color: "#666" },
 
   companyBlock: { alignItems: "flex-end" },
-  logo: { height: 22, marginBottom: 5, objectFit: "contain" },
+  logo: { height: 14, maxWidth: 55, objectFit: "contain" },
   companyName: { fontSize: 13, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   companyText: { fontSize: 8, color: "#555", textAlign: "right", marginBottom: 1 },
   companyTax: { fontSize: 7, color: "#999", textAlign: "right", marginBottom: 1 },
@@ -155,7 +156,7 @@ export function StarphoneDocument({ doc, items, company }: Props) {
   const email        = company.email         ?? "";
   const phone        = company.phone         ?? "";
   const website      = company.website       ?? "";
-  const logoUrl      = company.logo_url;
+  const logoUrl = STARPHONE_LOGO;
 
   const docItems = (items ?? []) as DocItem[];
 
@@ -209,6 +210,9 @@ export function StarphoneDocument({ doc, items, company }: Props) {
             {vatId   && <Text style={s.companyTax}>USt-IdNr.: {vatId}</Text>}
           </View>
         </View>
+
+        {/* ── Trennlinie ─────────────────────────────────────────────── */}
+        <View style={{ borderBottomWidth: 0.5, borderBottomColor: "#999", marginBottom: 14 }} />
 
         {/* ── Dokumenttitel ──────────────────────────────────────────── */}
         <View style={s.titleBlock}>
