@@ -56,7 +56,7 @@ const s = StyleSheet.create({
   recipientSub: { fontSize: 8, color: "#666" },
 
   companyBlock: { alignItems: "flex-end" },
-  logo: { height: 14, maxWidth: 55, objectFit: "contain" },
+  logo: { width: 160, height: 40, objectFit: "contain" },
   companyName: { fontSize: 13, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   companyText: { fontSize: 8, color: "#555", textAlign: "right", marginBottom: 1 },
   companyTax: { fontSize: 7, color: "#999", textAlign: "right", marginBottom: 1 },
@@ -177,36 +177,45 @@ export function StarphoneDocument({ doc, items, company }: Props) {
     angebot: "Angebot", kostenvoranschlag: "Kostenvoranschlag",
     lieferschein: "Lieferschein", rechnung: "Rechnung",
   };
+  const isLieferschein = doc.doc_type === "lieferschein";
   const typeLabel = typeLabels[doc.doc_type] ?? doc.doc_type;
 
   return (
     <Document title={`${typeLabel} ${doc.doc_number}`} author={companyName} creator="Starphone CMS">
       <Page size="A4" style={s.page}>
 
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <View style={s.header}>
-          {/* Links: Empfänger */}
-          <View style={{ flex: 1, paddingRight: 20 }}>
+        {/* ── Logo oben rechts — viel Luft ───────────────────────────── */}
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 30 }}>
+          {logoUrl
+            ? <Image src={logoUrl} style={s.logo} />
+            : <Text style={s.companyName}>{companyName}</Text>
+          }
+        </View>
+
+        {/* ── Empfänger links + Firma rechts ─────────────────────────── */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 24 }}>
+
+          {/* Links: DIN 5008 Empfängerfenster */}
+          <View style={{ width: "55%" }}>
             <Text style={s.senderMini}>{companyName} · {street} · {city}</Text>
-            {doc.customer_name    && <Text style={s.recipientName}>{doc.customer_name}</Text>}
-            {doc.customer_address && <Text style={s.recipientText}>{doc.customer_address}</Text>}
-            {doc.customer_email   && <Text style={s.recipientSub}>{doc.customer_email}</Text>}
-            {doc.customer_phone   && <Text style={s.recipientSub}>{doc.customer_phone}</Text>}
-            {doc.customer_tax_id  && <Text style={[s.recipientSub, { marginTop: 2, fontSize: 7 }]}>USt-IdNr.: {doc.customer_tax_id}</Text>}
+            <View style={{ marginTop: 8 }}>
+              {doc.customer_name    && <Text style={s.recipientName}>{doc.customer_name}</Text>}
+              {doc.customer_address && <Text style={s.recipientText}>{doc.customer_address}</Text>}
+              {doc.customer_email   && <Text style={s.recipientSub}>{doc.customer_email}</Text>}
+              {doc.customer_phone   && <Text style={s.recipientSub}>{doc.customer_phone}</Text>}
+              {doc.customer_tax_id  && <Text style={[s.recipientSub, { marginTop: 3, fontSize: 7 }]}>USt-IdNr.: {doc.customer_tax_id}</Text>}
+            </View>
           </View>
 
-          {/* Rechts: Firma */}
-          <View style={s.companyBlock}>
-            {logoUrl
-              ? <Image src={logoUrl} style={s.logo} />
-              : <Text style={s.companyName}>{companyName}</Text>
-            }
+          {/* Rechts: Firmenkontakt */}
+          <View style={[s.companyBlock, { width: "38%" }]}>
+            <Text style={[s.companyText, { fontFamily: "Helvetica-Bold", color: "#222", marginBottom: 3 }]}>{companyName}</Text>
             {street  && <Text style={s.companyText}>{street}</Text>}
             {city    && <Text style={s.companyText}>{city}</Text>}
-            {phone   && <Text style={[s.companyText, { marginTop: 3 }]}>{phone}</Text>}
+            {phone   && <Text style={[s.companyText, { marginTop: 5 }]}>{phone}</Text>}
             {email   && <Text style={s.companyText}>{email}</Text>}
             {website && <Text style={s.companyText}>{website}</Text>}
-            {taxId   && <Text style={[s.companyTax, { marginTop: 3 }]}>Steuernr.: {taxId}</Text>}
+            {taxId   && <Text style={[s.companyTax, { marginTop: 5 }]}>Steuernr.: {taxId}</Text>}
             {vatId   && <Text style={s.companyTax}>USt-IdNr.: {vatId}</Text>}
           </View>
         </View>
@@ -250,9 +259,9 @@ export function StarphoneDocument({ doc, items, company }: Props) {
           <Text style={[s.thText, s.colDesc]}>Beschreibung</Text>
           <Text style={[s.thText, s.colMenge]}>Menge</Text>
           <Text style={[s.thText, s.colEinheit]}>Einh.</Text>
-          <Text style={[s.thText, s.colPreis]}>Einzelpreis</Text>
-          {hasRabatt && <Text style={[s.thText, s.colRabatt]}>Rabatt</Text>}
-          <Text style={[s.thText, s.colGesamt]}>Gesamt</Text>
+          {!isLieferschein && <Text style={[s.thText, s.colPreis]}>Einzelpreis</Text>}
+          {!isLieferschein && hasRabatt && <Text style={[s.thText, s.colRabatt]}>Rabatt</Text>}
+          {!isLieferschein && <Text style={[s.thText, s.colGesamt]}>Gesamt</Text>}
         </View>
 
         {/* Table Rows */}
@@ -271,19 +280,19 @@ export function StarphoneDocument({ doc, items, company }: Props) {
               </View>
               <Text style={[s.tdText, s.colMenge]}>{item.quantity}</Text>
               <Text style={[s.tdGray, s.colEinheit]}>{item.unit}</Text>
-              <Text style={[s.tdText, s.colPreis]}>{money(item.unit_price)}</Text>
-              {hasRabatt && (
+              {!isLieferschein && <Text style={[s.tdText, s.colPreis]}>{money(item.unit_price)}</Text>}
+              {!isLieferschein && hasRabatt && (
                 <Text style={[s.tdGreen, s.colRabatt]}>
                   {rabattAmt > 0 ? `-${discType === "percent" ? disc + "%" : money(disc)}` : "—"}
                 </Text>
               )}
-              <Text style={[s.tdBold, s.colGesamt]}>{money(item.total)}</Text>
+              {!isLieferschein && <Text style={[s.tdBold, s.colGesamt]}>{money(item.total)}</Text>}
             </View>
           );
         })}
 
-        {/* ── Summen ─────────────────────────────────────────────────── */}
-        <View style={s.sumBlock}>
+        {/* ── Summen (nicht bei Lieferschein) ────────────────────────── */}
+        {!isLieferschein && <View style={s.sumBlock}>
           <View style={s.sumInner}>
             {hasRabatt && (
               <>
@@ -316,7 +325,7 @@ export function StarphoneDocument({ doc, items, company }: Props) {
               USt {taxRatePct}% ({money(totalMwst)}) enthalten.
             </Text>
           </View>
-        </View>
+        </View>}
 
         {/* ── Fußtext ────────────────────────────────────────────────── */}
         {doc.footer_note && <Text style={s.footerNote}>{doc.footer_note}</Text>}
