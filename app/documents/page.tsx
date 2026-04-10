@@ -16,6 +16,8 @@ export type DocumentListItem = {
   customer_email: string | null;
   total: number;
   created_at: string;
+  is_converted: boolean;
+  parent_document_id: string | null;
 };
 
 export default async function DocumentsPage() {
@@ -23,13 +25,19 @@ export default async function DocumentsPage() {
 
   const { data } = await supabase
     .from("documents")
-    .select("id, doc_type, doc_number, status, doc_date, customer_name, customer_email, total, created_at")
+    .select("id, doc_type, doc_number, status, doc_date, customer_name, customer_email, total, created_at, is_converted, parent_document_id")
     .order("created_at", { ascending: false });
 
-  const list = (data ?? []) as DocumentListItem[];
+  const all  = (data ?? []) as DocumentListItem[];
 
-  const drafts = list.filter((d) => d.status === "entwurf").length;
-  const sent = list.filter((d) => d.status === "gesendet").length;
+  // Hauptliste: nicht umgewandelte Dokumente
+  const list = all.filter((d) => !d.is_converted);
+
+  // Verlauf: umgewandelte Dokumente
+  const converted = all.filter((d) => d.is_converted);
+
+  const drafts     = list.filter((d) => d.status === "entwurf").length;
+  const sent       = list.filter((d) => d.status === "gesendet").length;
   const openAmount = list
     .filter((d) => d.status === "gesendet" && d.doc_type === "rechnung")
     .reduce((sum, d) => sum + (d.total ?? 0), 0);
@@ -45,7 +53,7 @@ export default async function DocumentsPage() {
         <div className="flex items-start justify-between mb-7">
           <div>
             <h1 className="text-[20px] font-semibold text-black tracking-tight">Dokumente</h1>
-            <p className="text-[12px] text-gray-400 mt-0.5">{list.length} Dokumente gesamt</p>
+            <p className="text-[12px] text-gray-400 mt-0.5">{list.length} aktive Dokumente</p>
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -74,10 +82,10 @@ export default async function DocumentsPage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-7">
           {[
-            { label: "Entwürfe",  value: drafts,                    sub: "unveröffentlicht"    },
-            { label: "Gesendet",  value: sent,                      sub: "beim Kunden"          },
-            { label: "Offen",     value: formatMoney(openAmount),   sub: "offene Rechnungen"    },
-            { label: "Bezahlt",   value: formatMoney(paidAmount),   sub: "bezahlte Rechnungen"  },
+            { label: "Entwürfe", value: drafts,                  sub: "unveröffentlicht"   },
+            { label: "Gesendet", value: sent,                    sub: "beim Kunden"         },
+            { label: "Offen",    value: formatMoney(openAmount), sub: "offene Rechnungen"   },
+            { label: "Bezahlt",  value: formatMoney(paidAmount), sub: "bezahlte Rechnungen" },
           ].map(({ label, value, sub }) => (
             <div key={label} className="bg-gray-50 rounded-xl px-5 py-4 border border-gray-100">
               <p className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">{label}</p>
@@ -87,7 +95,7 @@ export default async function DocumentsPage() {
           ))}
         </div>
 
-        <DocumentsClient initialDocuments={list} />
+        <DocumentsClient initialDocuments={list} convertedDocuments={converted} />
       </div>
     </main>
   );

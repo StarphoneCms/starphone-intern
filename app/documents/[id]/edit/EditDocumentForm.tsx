@@ -51,8 +51,6 @@ const inputCls =
   "w-full h-8 px-3 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300";
 const labelCls = "block text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider mb-1";
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function EditDocumentForm({
   doc,
   items: initialItems,
@@ -63,10 +61,9 @@ export default function EditDocumentForm({
   const router = useRouter();
   const supabase = createClient();
 
-  const docId = doc.id as string;
+  const docId   = doc.id as string;
   const docType = doc.doc_type as DocType;
 
-  // Customer
   const [customerMode, setCustomerMode] = useState<"search" | "manual">(
     doc.customer_id ? "search" : "manual"
   );
@@ -75,53 +72,49 @@ export default function EditDocumentForm({
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(
     doc.customer_id
       ? {
-          id: doc.customer_id as string,
+          id:         doc.customer_id as string,
           first_name: (doc.customer_name as string).split(" ")[0] ?? "",
-          last_name: (doc.customer_name as string).split(" ").slice(1).join(" ") ?? "",
-          phone: (doc.customer_phone as string | null) ?? null,
-          email: (doc.customer_email as string | null) ?? null,
-          address: (doc.customer_address as string | null) ?? null,
+          last_name:  (doc.customer_name as string).split(" ").slice(1).join(" ") ?? "",
+          phone:      (doc.customer_phone  as string | null) ?? null,
+          email:      (doc.customer_email  as string | null) ?? null,
+          address:    (doc.customer_address as string | null) ?? null,
         }
       : null
   );
   const [manualCustomer, setManualCustomer] = useState({
-    name: (doc.customer_name as string) ?? "",
-    email: (doc.customer_email as string) ?? "",
-    phone: (doc.customer_phone as string) ?? "",
+    name:    (doc.customer_name    as string) ?? "",
+    email:   (doc.customer_email   as string) ?? "",
+    phone:   (doc.customer_phone   as string) ?? "",
     address: (doc.customer_address as string) ?? "",
-    tax_id: (doc.customer_tax_id as string) ?? "",
+    tax_id:  (doc.customer_tax_id  as string) ?? "",
   });
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerRef = useRef<HTMLDivElement>(null);
 
-  // Items
   const [items, setItems] = useState<LineItem[]>(
     initialItems.map((i) => ({
-      position: i.position as number,
-      description: i.description as string,
-      quantity: i.quantity as number,
-      unit: i.unit as string,
+      position:   i.position   as number,
+      description:i.description as string,
+      quantity:   i.quantity   as number,
+      unit:       i.unit       as string,
       unit_price: i.unit_price as number,
-      total: i.total as number,
+      total:      i.total      as number,
     }))
   );
-  const [priceSearch, setPriceSearch] = useState("");
-  const [priceResults, setPriceResults] = useState<PriceResult[]>([]);
+  const [priceSearch, setPriceSearch]       = useState("");
+  const [priceResults, setPriceResults]     = useState<PriceResult[]>([]);
   const [showPriceDropdown, setShowPriceDropdown] = useState(false);
   const priceRef = useRef<HTMLDivElement>(null);
 
-  // Notes + Dates
   const [headerNote, setHeaderNote] = useState((doc.header_note as string) ?? "");
   const [footerNote, setFooterNote] = useState((doc.footer_note as string) ?? "");
-  const [docDate, setDocDate] = useState((doc.doc_date as string) ?? new Date().toISOString().split("T")[0]);
+  const [docDate,    setDocDate]    = useState((doc.doc_date    as string) ?? new Date().toISOString().split("T")[0]);
   const [validUntil, setValidUntil] = useState((doc.valid_until as string) ?? "");
-  const [dueDate, setDueDate] = useState((doc.due_date as string) ?? "");
-  const [taxRate] = useState((doc.tax_rate as number) ?? 19);
+  const [dueDate,    setDueDate]    = useState((doc.due_date    as string) ?? "");
+  const [taxRate]                   = useState((doc.tax_rate    as number) ?? 19);
 
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  // ── Customer search ─────────────────────────────────────────────────────────
+  const [error,  setError]  = useState("");
 
   const searchCustomers = useCallback(async (q: string) => {
     if (!q.trim()) { setCustomerResults([]); return; }
@@ -139,8 +132,6 @@ export default function EditDocumentForm({
     return () => clearTimeout(t);
   }, [customerSearch, searchCustomers]);
 
-  // ── Price list search ───────────────────────────────────────────────────────
-
   const searchPrices = useCallback(async (q: string) => {
     if (!q.trim() || q.length < 2) { setPriceResults([]); return; }
     const { data } = await supabase
@@ -153,15 +144,12 @@ export default function EditDocumentForm({
     for (const row of data) {
       for (const col of PRICE_COLS) {
         const preis = (row as unknown as Record<string, number | null>)[col.key];
-        if (preis != null && preis > 0) {
+        if (preis != null && preis > 0)
           flat.push({
             hersteller: (row as unknown as Record<string, string>).hersteller,
-            modell: (row as unknown as Record<string, string>).modell,
-            field: col.key,
-            label: col.label,
-            preis,
+            modell:     (row as unknown as Record<string, string>).modell,
+            field: col.key, label: col.label, preis,
           });
-        }
       }
     }
     setPriceResults(flat.slice(0, 20));
@@ -184,31 +172,17 @@ export default function EditDocumentForm({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // ── Items ───────────────────────────────────────────────────────────────────
-
   function addEmptyItem() {
-    setItems((prev) => [...prev, {
-      position: prev.length + 1,
-      description: "",
-      quantity: 1,
-      unit: "Stk.",
-      unit_price: 0,
-      total: 0,
-    }]);
+    setItems((prev) => [...prev, { position: prev.length + 1, description: "", quantity: 1, unit: "Stk.", unit_price: 0, total: 0 }]);
   }
 
   function addPriceItem(r: PriceResult) {
     setItems((prev) => [...prev, {
       position: prev.length + 1,
       description: `${r.hersteller} ${r.modell} – ${r.label}`,
-      quantity: 1,
-      unit: "Stk.",
-      unit_price: r.preis,
-      total: r.preis,
+      quantity: 1, unit: "Stk.", unit_price: r.preis, total: r.preis,
     }]);
-    setPriceSearch("");
-    setPriceResults([]);
-    setShowPriceDropdown(false);
+    setPriceSearch(""); setPriceResults([]); setShowPriceDropdown(false);
   }
 
   function updateItem(idx: number, field: keyof LineItem, value: string | number) {
@@ -224,48 +198,35 @@ export default function EditDocumentForm({
   }
 
   function removeItem(idx: number) {
-    setItems((prev) =>
-      prev.filter((_, i) => i !== idx).map((item, i) => ({ ...item, position: i + 1 }))
-    );
+    setItems((prev) => prev.filter((_, i) => i !== idx).map((item, i) => ({ ...item, position: i + 1 })));
   }
 
-  const subtotal = items.reduce((sum, i) => sum + (i.total || 0), 0);
+  const subtotal  = items.reduce((sum, i) => sum + (i.total || 0), 0);
   const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100;
-  const total = subtotal + taxAmount;
-
-  // ── Submit ──────────────────────────────────────────────────────────────────
+  const total     = subtotal + taxAmount;
 
   async function handleSave(goToPreview = false) {
     const name = selectedCustomer
       ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
       : manualCustomer.name;
     if (!name.trim()) { setError("Bitte Kundennamen eingeben."); return; }
-
-    setSaving(true);
-    setError("");
-
+    setSaving(true); setError("");
     const payload = {
-      doc_date: docDate,
-      valid_until: validUntil || null,
-      due_date: dueDate || null,
-      customer_id: selectedCustomer?.id ?? null,
-      customer_name: name,
-      customer_email: (selectedCustomer?.email ?? manualCustomer.email) || null,
-      customer_phone: (selectedCustomer?.phone ?? manualCustomer.phone) || null,
+      doc_date: docDate, valid_until: validUntil || null, due_date: dueDate || null,
+      customer_id:      selectedCustomer?.id ?? null,
+      customer_name:    name,
+      customer_email:   (selectedCustomer?.email   ?? manualCustomer.email)   || null,
+      customer_phone:   (selectedCustomer?.phone   ?? manualCustomer.phone)   || null,
       customer_address: (selectedCustomer?.address ?? manualCustomer.address) || null,
-      customer_tax_id: manualCustomer.tax_id || null,
+      customer_tax_id:  manualCustomer.tax_id || null,
       items: items.map((item) => ({
-        position: item.position,
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        unit_price: item.unit_price,
+        position: item.position, description: item.description,
+        quantity: item.quantity, unit: item.unit, unit_price: item.unit_price,
       })),
       header_note: headerNote || null,
       footer_note: footerNote || null,
       tax_rate: taxRate,
     };
-
     try {
       const res = await fetch(`/api/documents/${docId}`, {
         method: "PUT",
@@ -277,8 +238,7 @@ export default function EditDocumentForm({
       if (goToPreview) router.push(`/documents/${docId}/preview`);
       else router.push(`/documents/${docId}`);
     } catch {
-      setError("Netzwerkfehler");
-      setSaving(false);
+      setError("Netzwerkfehler"); setSaving(false);
     }
   }
 
@@ -300,7 +260,8 @@ export default function EditDocumentForm({
 
         <div className="flex items-center gap-2.5 mb-7">
           <h1 className="text-[20px] font-semibold text-black tracking-tight">Bearbeiten</h1>
-          <span className={["inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold", cfg.bg, cfg.text].join(" ")}>
+          {/* ── Fix: accent statt bg/text um Hydration-Mismatch zu vermeiden ── */}
+          <span className={["inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold", cfg.accent, cfg.accentText].join(" ")}>
             {cfg.prefix}
           </span>
           <span className="font-mono text-[14px] text-gray-500">{doc.doc_number as string}</span>
@@ -350,8 +311,7 @@ export default function EditDocumentForm({
                         <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2" />
                         <line x1="7.5" y1="7.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                       </svg>
-                      <input type="text" placeholder="Kunde suchen …"
-                        value={customerSearch}
+                      <input type="text" placeholder="Kunde suchen …" value={customerSearch}
                         onChange={(e) => setCustomerSearch(e.target.value)}
                         onFocus={() => customerSearch && setShowCustomerDropdown(true)}
                         className={`${inputCls} pl-8`} />
@@ -381,32 +341,27 @@ export default function EditDocumentForm({
                 <div>
                   <label className={labelCls}>Name *</label>
                   <input type="text" value={manualCustomer.name}
-                    onChange={(e) => setManualCustomer((p) => ({ ...p, name: e.target.value }))}
-                    className={inputCls} />
+                    onChange={(e) => setManualCustomer((p) => ({ ...p, name: e.target.value }))} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>E-Mail</label>
                   <input type="email" value={manualCustomer.email}
-                    onChange={(e) => setManualCustomer((p) => ({ ...p, email: e.target.value }))}
-                    className={inputCls} />
+                    onChange={(e) => setManualCustomer((p) => ({ ...p, email: e.target.value }))} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Telefon</label>
                   <input type="tel" value={manualCustomer.phone}
-                    onChange={(e) => setManualCustomer((p) => ({ ...p, phone: e.target.value }))}
-                    className={inputCls} />
+                    onChange={(e) => setManualCustomer((p) => ({ ...p, phone: e.target.value }))} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>USt-IdNr.</label>
                   <input type="text" value={manualCustomer.tax_id}
-                    onChange={(e) => setManualCustomer((p) => ({ ...p, tax_id: e.target.value }))}
-                    className={inputCls} />
+                    onChange={(e) => setManualCustomer((p) => ({ ...p, tax_id: e.target.value }))} className={inputCls} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Adresse</label>
                   <input type="text" value={manualCustomer.address}
-                    onChange={(e) => setManualCustomer((p) => ({ ...p, address: e.target.value }))}
-                    className={inputCls} />
+                    onChange={(e) => setManualCustomer((p) => ({ ...p, address: e.target.value }))} className={inputCls} />
                 </div>
               </div>
             )}
@@ -425,8 +380,7 @@ export default function EditDocumentForm({
                     <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.2" />
                     <line x1="7.5" y1="7.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                   </svg>
-                  <input type="text" placeholder="Aus Preisliste …"
-                    value={priceSearch}
+                  <input type="text" placeholder="Aus Preisliste …" value={priceSearch}
                     onChange={(e) => setPriceSearch(e.target.value)}
                     onFocus={() => priceResults.length > 0 && setShowPriceDropdown(true)}
                     className="h-7 pl-7 pr-3 text-[11.5px] rounded-lg border border-gray-200 bg-white placeholder-gray-300 text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300 w-44" />
@@ -455,7 +409,7 @@ export default function EditDocumentForm({
           </div>
           <div className="bg-white">
             {items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-1.5">
+              <div className="flex flex-col items-center justify-center py-10">
                 <p className="text-[12px] text-gray-400">Noch keine Positionen</p>
               </div>
             ) : (
@@ -502,11 +456,11 @@ export default function EditDocumentForm({
                         onChange={(e) => updateItem(idx, "description", e.target.value)}
                         placeholder="Beschreibung" className={inputCls} />
                       <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: "Menge", field: "quantity" as const, type: "number" },
-                          { label: "Einheit", field: "unit" as const, type: "text" },
-                          { label: "Preis", field: "unit_price" as const, type: "number" },
-                        ].map(({ label, field, type }) => (
+                        {([
+                          { label: "Menge",   field: "quantity"   as const, type: "number" },
+                          { label: "Einheit", field: "unit"       as const, type: "text"   },
+                          { label: "Preis",   field: "unit_price" as const, type: "number" },
+                        ] as const).map(({ label, field, type }) => (
                           <div key={field}>
                             <label className="text-[10px] text-gray-400 mb-0.5 block">{label}</label>
                             <input type={type} value={item[field]}
@@ -521,9 +475,9 @@ export default function EditDocumentForm({
                 ))}
                 <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 flex flex-col items-end gap-1">
                   {[
-                    { label: "Zwischensumme", val: formatMoney(subtotal), bold: false },
+                    { label: "Zwischensumme", val: formatMoney(subtotal),  bold: false },
                     { label: `MwSt. ${taxRate}%`, val: formatMoney(taxAmount), bold: false },
-                    { label: "Gesamt", val: formatMoney(total), bold: true },
+                    { label: "Gesamt",         val: formatMoney(total),    bold: true  },
                   ].map(({ label, val, bold }) => (
                     <div key={label} className={["flex items-center gap-6", bold ? "border-t border-gray-200 pt-1.5 mt-0.5" : ""].join(" ")}>
                       <span className={["text-gray-900", bold ? "text-[12.5px] font-semibold" : "text-[11.5px] text-gray-500"].join(" ")}>{label}</span>

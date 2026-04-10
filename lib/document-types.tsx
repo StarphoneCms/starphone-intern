@@ -34,6 +34,10 @@ export interface DocumentItem {
   document_id?: string;
   position: number;
   description: string;
+  details?: string | null;
+  discount?: number;
+  discount_type?: string;
+  tax_rate?: number;
   quantity: number;
   unit: string;
   unit_price: number;
@@ -71,6 +75,9 @@ export const DOC_TYPE_CONFIG: Record<
     border: string;
     prefix: string;
     convertTo: DocType[];
+    // Für Buttons/Cards: stärkere Akzentfarbe
+    accent: string;
+    accentText: string;
   }
 > = {
   angebot: {
@@ -79,6 +86,8 @@ export const DOC_TYPE_CONFIG: Record<
     bg: "bg-blue-50",
     text: "text-blue-700",
     border: "border-blue-200",
+    accent: "bg-blue-600",
+    accentText: "text-white",
     prefix: "AG",
     convertTo: ["kostenvoranschlag", "rechnung", "lieferschein"],
   },
@@ -88,6 +97,8 @@ export const DOC_TYPE_CONFIG: Record<
     bg: "bg-violet-50",
     text: "text-violet-700",
     border: "border-violet-200",
+    accent: "bg-violet-600",
+    accentText: "text-white",
     prefix: "KV",
     convertTo: ["angebot", "rechnung", "lieferschein"],
   },
@@ -97,15 +108,19 @@ export const DOC_TYPE_CONFIG: Record<
     bg: "bg-teal-50",
     text: "text-teal-700",
     border: "border-teal-200",
+    accent: "bg-teal-600",
+    accentText: "text-white",
     prefix: "LS",
     convertTo: ["rechnung"],
   },
   rechnung: {
     label: "Rechnung",
     shortLabel: "RE",
-    bg: "bg-green-50",
-    text: "text-green-700",
-    border: "border-green-200",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    accent: "bg-emerald-600",
+    accentText: "text-white",
     prefix: "RE",
     convertTo: ["lieferschein"],
   },
@@ -153,14 +168,11 @@ export function DocStatusPill({ status }: { status: DocumentStatus }) {
   const cfg = DOC_STATUS_CONFIG[status];
   if (!cfg) return null;
   return (
-    <span
-      className={[
-        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full",
-        "text-[11px] font-medium whitespace-nowrap select-none",
-        cfg.bg,
-        cfg.text,
-      ].join(" ")}
-    >
+    <span className={[
+      "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full",
+      "text-[11px] font-medium whitespace-nowrap select-none",
+      cfg.bg, cfg.text,
+    ].join(" ")}>
       <span className={["w-1.5 h-1.5 rounded-full shrink-0", cfg.dot].join(" ")} />
       {cfg.label}
     </span>
@@ -171,14 +183,11 @@ export function DocTypePill({ type }: { type: DocType }) {
   const cfg = DOC_TYPE_CONFIG[type];
   if (!cfg) return null;
   return (
-    <span
-      className={[
-        "inline-flex items-center px-2 py-0.5 rounded-md",
-        "text-[11px] font-semibold whitespace-nowrap select-none",
-        cfg.bg,
-        cfg.text,
-      ].join(" ")}
-    >
+    <span className={[
+      "inline-flex items-center px-2 py-0.5 rounded-md",
+      "text-[11px] font-semibold whitespace-nowrap select-none",
+      cfg.accent, cfg.accentText,
+    ].join(" ")}>
       {cfg.shortLabel}
     </span>
   );
