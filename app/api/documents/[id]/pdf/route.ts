@@ -29,7 +29,7 @@ export async function GET(
       }) as any
     );
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${doc.doc_number}.pdf"`,
