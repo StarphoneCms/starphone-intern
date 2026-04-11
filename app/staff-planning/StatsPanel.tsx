@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/browser'
 import { STAFF, Shift, getHoursFromTimes } from './types'
 
 type Period = 'week' | 'month' | 'custom'
@@ -26,6 +26,8 @@ function getDateRange(period: Period, customStart?: string, customEnd?: string) 
 function fmt(d: Date) { return d.toISOString().split('T')[0] }
 
 export default function StatsPanel() {
+  const supabase = createClient()
+
   const [period, setPeriod] = useState<Period>('month')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')

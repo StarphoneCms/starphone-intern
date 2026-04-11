@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/browser'
 import { STAFF, VacationRequest, getNRWHolidays } from './types'
 
 interface Props {
@@ -29,6 +29,8 @@ function getDays(start: string, end: string) {
 }
 
 export default function VacationCalendar({ vacations, onUpdate, isAdmin }: Props) {
+  const supabase = createClient()
+
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())

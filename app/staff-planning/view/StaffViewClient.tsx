@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/browser'
 import { STAFF, Shift, VacationRequest, getNRWHolidays, getHoursFromTimes, formatTime } from '../types'
 
 const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
@@ -26,6 +26,8 @@ interface Props {
 }
 
 export default function StaffViewPage({ params }: Props) {
+  const supabase = createClient()
+
   const [staffId, setStaffId] = useState<number | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [weekOffset, setWeekOffset] = useState(0)

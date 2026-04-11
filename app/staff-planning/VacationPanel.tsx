@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/browser'
 import { STAFF, VacationRequest } from './types'
 
 interface Props {
@@ -17,6 +17,8 @@ const STATUS_LABELS = {
 }
 
 export default function VacationPanel({ vacations, onUpdate, isAdmin }: Props) {
+  const supabase = createClient()
+
   const [showForm, setShowForm] = useState(false)
   const [staffId, setStaffId] = useState(1)
   const [startDate, setStartDate] = useState('')

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/browser'
 import {
   STAFF, ShiftTemplate, Shift, VacationRequest,
   getNRWHolidays, getNetHours, getBreakMinutes, formatTime
@@ -37,13 +37,15 @@ function fmt(d: Date) {
 }
 
 export default function StaffPlanningPage() {
+  const supabase = createClient()
+
   // Auth gate state
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [pwInput, setPwInput] = useState('')
   const [pwError, setPwError] = useState(false)
 
   // Admin check
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
 
   // Planning state (all hooks must be above any early return)
   const [weekOffset, setWeekOffset] = useState(0)
@@ -100,6 +102,8 @@ export default function StaffPlanningPage() {
       setPwError(true)
     }
   }
+
+  if (isAdmin === null) return <div className="p-6 text-gray-400 text-sm">Laden...</div>
 
   if (!isUnlocked) {
     return (
@@ -342,7 +346,7 @@ export default function StaffPlanningPage() {
         )}
 
         {/* ── Tagesplan ── */}
-        {tab === 'day' && <DayPlanPanel isAdmin={isAdmin} />}
+        {tab === 'day' && <DayPlanPanel isAdmin={isAdmin!} />}
 
         {/* ── Urlaub ── */}
         {tab === 'vacation' && (
@@ -362,9 +366,9 @@ export default function StaffPlanningPage() {
               </button>
             </div>
             {vacSub === 'calendar' ? (
-              <VacationCalendar vacations={vacations} onUpdate={load} isAdmin={isAdmin} />
+              <VacationCalendar vacations={vacations} onUpdate={load} isAdmin={isAdmin!} />
             ) : (
-              <VacationPanel vacations={vacations} onUpdate={load} isAdmin={isAdmin} />
+              <VacationPanel vacations={vacations} onUpdate={load} isAdmin={isAdmin!} />
             )}
           </>
         )}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/browser'
 import {
   STAFF, DailyTask, Shift, getHoursFromTimes, getBreakMinutes, getNetHours, formatTime
 } from './types'
@@ -15,6 +15,8 @@ const STAFF_IDS = [1, 2, 3, 5]
 function fmtDate(d: Date) { return d.toISOString().split('T')[0] }
 
 export default function DayPlanPanel({ isAdmin }: Props) {
+  const supabase = createClient()
+
   const [date, setDate] = useState(fmtDate(new Date()))
   const [staffId, setStaffId] = useState(1)
   const [shifts, setShifts] = useState<Shift[]>([])
