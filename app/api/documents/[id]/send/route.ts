@@ -49,7 +49,7 @@ export async function POST(
         doc,
         items: items ?? [],
         company: settings ?? {},
-      })
+      }) as any
     );
 
     // SMTP Transporter
