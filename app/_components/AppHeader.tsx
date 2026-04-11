@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard",   icon: (active: boolean) => (
+  { href: "/dashboard", label: "Dashboard", icon: (active: boolean) => (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
       <rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
@@ -14,12 +14,10 @@ const NAV_ITEMS = [
       <rect x="11" y="11" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
     </svg>
   )},
-  { href: "/documents", label: "Dokumente", icon: (active: boolean) => (
+  { href: "/customers", label: "Kunden", icon: (active: boolean) => (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M5 3h7l4 4v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
-      <path d="M12 3v4h4" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
-      <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
-      <line x1="7" y1="13" x2="11" y2="13" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+      <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
+      <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
     </svg>
   )},
   { href: "/repairs", label: "Reparaturen", icon: (active: boolean) => (
@@ -27,12 +25,6 @@ const NAV_ITEMS = [
       <path d="M12 4l4 4-8 8-4-4 8-8z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
       <path d="M14 2l4 4-1.5 1.5L12.5 3.5 14 2z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
       <path d="M3 17l1-4 3 3-4 1z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
-    </svg>
-  )},
-  { href: "/customers", label: "Kunden", icon: (active: boolean) => (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
-      <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
     </svg>
   )},
   { href: "/prices", label: "Preisliste", icon: (active: boolean) => (
@@ -48,6 +40,28 @@ const NAV_ITEMS = [
       <rect x="11" y="3" width="6" height="6" rx="1" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
       <rect x="3" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
       <rect x="11" y="11" width="6" height="6" rx="1" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
+    </svg>
+  )},
+  { href: "/documents", label: "Dokumente", icon: (active: boolean) => (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M5 3h7l4 4v10a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
+      <path d="M12 3v4h4" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
+      <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+      <line x1="7" y1="13" x2="11" y2="13" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+    </svg>
+  )},
+  { href: "/labels", label: "Etiketten", icon: (active: boolean) => (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M3 4a1 1 0 011-1h5.586a1 1 0 01.707.293l6.414 6.414a1 1 0 010 1.414l-5.586 5.586a1 1 0 01-1.414 0L3.293 10.293A1 1 0 013 9.586V4z" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinejoin="round"/>
+      <circle cx="7" cy="7" r="1" fill="currentColor"/>
+    </svg>
+  )},
+  { href: "/staff-planning", label: "Personalplanung", icon: (active: boolean) => (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="7" cy="6" r="2.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
+      <circle cx="14" cy="6" r="2.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
+      <path d="M2 16c0-2.21 2.239-4 5-4s5 1.79 5 4" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+      <path d="M12 12.5c1.1-.5 2.3-.5 3.5 0 1.7.7 2.5 2 2.5 3.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
     </svg>
   )},
 ];
@@ -103,15 +117,6 @@ export default function AppHeader() {
                 </Link>
               );
             })}
-            {/* Labels nur Desktop */}
-            {(() => { const active = isActive("/labels"); return (
-              <Link href="/labels"
-                className={["relative h-7 px-2.5 rounded-md text-[12.5px] font-medium transition-colors flex items-center whitespace-nowrap",
-                  active ? "text-black bg-gray-100" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"].join(" ")}>
-                Etiketten
-                {active && <span className="absolute rounded-full bg-black" style={{ bottom: 3, left: "50%", transform: "translateX(-50%)", width: 3, height: 3 }} />}
-              </Link>
-            ); })()}
           </nav>
 
           <div className="flex items-center gap-1.5 ml-auto shrink-0">

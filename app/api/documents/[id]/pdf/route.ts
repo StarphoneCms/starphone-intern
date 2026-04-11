@@ -26,7 +26,7 @@ export async function GET(
         doc,
         items: items ?? [],
         company: settings ?? {},
-      })
+      }) as any
     );
 
     return new NextResponse(buffer, {
