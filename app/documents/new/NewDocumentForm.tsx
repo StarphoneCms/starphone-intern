@@ -110,9 +110,9 @@ export default function NewDocumentForm() {
     const flat: PriceResult[] = [];
     for (const row of data) {
       for (const col of PRICE_COLS) {
-        const preis = (row as Record<string, unknown>)[col.key] as number | null;
+        const preis = (row as unknown as Record<string, unknown>)[col.key] as number | null;
         if (preis != null && preis > 0)
-          flat.push({ hersteller: (row as Record<string, string>).hersteller, modell: (row as Record<string, string>).modell, field: col.key, label: col.label, preis });
+          flat.push({ hersteller: (row as unknown as Record<string, string>).hersteller, modell: (row as unknown as Record<string, string>).modell, field: col.key, label: col.label, preis });
       }
     }
     setPriceResults(flat.slice(0, 20));

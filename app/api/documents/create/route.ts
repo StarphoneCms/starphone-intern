@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     if (parsedItems.length > 0) {
       const { error: itemsError } = await supabase.from("document_items").insert(
-        parsedItems.map((item) => ({ ...item, document_id: doc.id }))
+        parsedItems.map((item: any) => ({ ...item, document_id: doc.id }))
       );
       if (itemsError) {
         await supabase.from("documents").delete().eq("id", doc.id);
