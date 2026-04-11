@@ -67,13 +67,13 @@ export default function StaffViewPage({ params }: Props) {
   }, [staffId, weekOffset])
 
   if (notFound) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-500">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">
       Ungültiger Link
     </div>
   )
 
   if (!staffId) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-500">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">
       Laden...
     </div>
   )
@@ -95,15 +95,15 @@ export default function StaffViewPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="border-b border-gray-800 bg-gray-900/50 px-4 py-3">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white"
             style={{ backgroundColor: staff.color }}>
             {staff.initials}
           </div>
           <div>
-            <div className="font-bold text-white">{staff.name}</div>
+            <div className="font-bold text-gray-900">{staff.name}</div>
             <div className="text-xs text-gray-500">Mein Arbeitsplan · Nur Ansicht</div>
           </div>
         </div>
@@ -113,23 +113,23 @@ export default function StaffViewPage({ params }: Props) {
         {/* Week nav */}
         <div className="flex items-center gap-2">
           <button onClick={() => setWeekOffset(o => o - 1)}
-            className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">‹</button>
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">‹</button>
           <button onClick={() => setWeekOffset(0)}
-            className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs transition-colors">Heute</button>
-          <span className="text-xs text-gray-400 flex-1 text-center">{weekLabel()}</span>
+            className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs transition-colors">Heute</button>
+          <span className="text-xs text-gray-500 flex-1 text-center">{weekLabel()}</span>
           <button onClick={() => setWeekOffset(o => o + 1)}
-            className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">›</button>
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">›</button>
         </div>
 
         {/* Week hours badge */}
-        <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
-          <span className="text-sm text-gray-400">Stunden diese Woche</span>
+        <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
+          <span className="text-sm text-gray-500">Stunden diese Woche</span>
           <span className="text-xl font-bold" style={{ color: staff.color }}>{weekHours.toFixed(1)}h</span>
         </div>
 
         {/* Day cards */}
         {loading ? (
-          <div className="text-center py-8 text-gray-600">Laden...</div>
+          <div className="text-center py-8 text-gray-500">Laden...</div>
         ) : (
           <div className="space-y-2">
             {weekDates.map((d, i) => {
@@ -144,18 +144,18 @@ export default function StaffViewPage({ params }: Props) {
               return (
                 <div key={i} className={`rounded-xl border p-3 ${
                   isToday
-                    ? 'border-indigo-500/50 bg-indigo-950/30'
+                    ? 'border-indigo-200 bg-indigo-50'
                     : isWeekend || holiday
-                    ? 'border-gray-800/50 bg-gray-900/30'
-                    : 'border-gray-800 bg-gray-900'
+                    ? 'border-gray-200 bg-gray-50'
+                    : 'border-gray-200 bg-white'
                 }`}>
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className={`text-sm font-bold ${isToday ? 'text-indigo-400' : isWeekend ? 'text-gray-500' : 'text-gray-200'}`}>
+                      <div className={`text-sm font-bold ${isToday ? 'text-indigo-600' : isWeekend ? 'text-gray-500' : 'text-gray-700'}`}>
                         {DAYS[i]}, {d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
-                        {isToday && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 text-white">Heute</span>}
+                        {isToday && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-black text-white">Heute</span>}
                       </div>
-                      {holiday && <div className="text-[11px] text-amber-400 mt-0.5">🎉 {holiday}</div>}
+                      {holiday && <div className="text-[11px] text-amber-600 mt-0.5">{holiday}</div>}
                     </div>
                     {dayHours > 0 && (
                       <span className="text-sm font-semibold" style={{ color: staff.color }}>{dayHours.toFixed(1)}h</span>
@@ -163,22 +163,22 @@ export default function StaffViewPage({ params }: Props) {
                   </div>
 
                   {onVacation ? (
-                    <div className="mt-2 rounded-lg bg-sky-900/30 border border-sky-800/40 px-3 py-2 text-sm text-sky-400">
-                      🏖️ Urlaub
+                    <div className="mt-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-600">
+                      Urlaub
                     </div>
                   ) : dayShifts.length > 0 ? (
                     <div className="mt-2 space-y-1">
                       {dayShifts.map(shift => (
                         <div key={shift.id}
-                          className="rounded-lg px-3 py-2 text-sm text-white"
-                          style={{ backgroundColor: staff.color + '22', borderLeft: `3px solid ${staff.color}` }}>
+                          className="rounded-lg px-3 py-2 text-sm text-gray-900"
+                          style={{ backgroundColor: staff.color + '18', borderLeft: `3px solid ${staff.color}` }}>
                           <span className="font-semibold">{formatTime(shift.start_time)} – {formatTime(shift.end_time)}</span>
-                          {shift.note && <span className="text-gray-400 ml-2 text-xs">{shift.note}</span>}
+                          {shift.note && <span className="text-gray-500 ml-2 text-xs">{shift.note}</span>}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="mt-2 text-xs text-gray-600">Frei</div>
+                    <div className="mt-2 text-xs text-gray-500">Frei</div>
                   )}
                 </div>
               )
@@ -188,13 +188,13 @@ export default function StaffViewPage({ params }: Props) {
 
         {/* Upcoming vacations */}
         {vacations.filter(v => v.status === 'approved' && v.end_date >= fmt(new Date())).length > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-800 text-sm font-semibold text-white">
-              🏖️ Genehmigter Urlaub
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 text-sm font-semibold text-gray-900">
+              Genehmigter Urlaub
             </div>
             {vacations.filter(v => v.status === 'approved' && v.end_date >= fmt(new Date())).map(v => (
-              <div key={v.id} className="px-4 py-3 border-t border-gray-800 text-sm">
-                <div className="text-gray-200">
+              <div key={v.id} className="px-4 py-3 border-t border-gray-200 text-sm">
+                <div className="text-gray-700">
                   {new Date(v.start_date).toLocaleDateString('de-DE')} – {new Date(v.end_date).toLocaleDateString('de-DE')}
                 </div>
                 {v.note && <div className="text-gray-500 text-xs mt-0.5">{v.note}</div>}
@@ -203,7 +203,7 @@ export default function StaffViewPage({ params }: Props) {
           </div>
         )}
 
-        <div className="text-center text-xs text-gray-700 pt-2">Starphone CMS · Nur Ansicht</div>
+        <div className="text-center text-xs text-gray-500 pt-2">Starphone CMS · Nur Ansicht</div>
       </div>
     </div>
   )
