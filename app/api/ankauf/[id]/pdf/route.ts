@@ -3,7 +3,7 @@ import { createRouteClient } from "@/lib/supabase/server";
 import { createElement } from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import {
-  Document, Page, Text, View, StyleSheet, Font,
+  Document, Page, Text, View, Image, StyleSheet, Font,
 } from "@react-pdf/renderer";
 
 Font.register({
@@ -15,126 +15,130 @@ Font.register({
   ],
 });
 
-const s = StyleSheet.create({
+const st = StyleSheet.create({
   page: { fontFamily: "Inter", fontSize: 10, padding: 50, color: "#111" },
-  header: { marginBottom: 30 },
-  title: { fontSize: 18, fontWeight: 700, marginBottom: 4 },
-  subtitle: { fontSize: 10, color: "#666" },
-  divider: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", marginVertical: 15 },
-  row: { flexDirection: "row", marginBottom: 6 },
-  label: { width: 140, fontSize: 9, color: "#666", fontWeight: 600 },
+  title: { fontSize: 16, fontWeight: 700, textAlign: "center", marginBottom: 2 },
+  subtitle: { fontSize: 10, textAlign: "center", color: "#666", marginBottom: 20 },
+  meta: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
+  metaText: { fontSize: 9, color: "#666" },
+  divider: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", marginVertical: 12 },
+  twoCol: { flexDirection: "row", gap: 20, marginBottom: 12 },
+  col: { flex: 1 },
+  sectionTitle: { fontSize: 10, fontWeight: 700, marginBottom: 8 },
+  row: { flexDirection: "row", marginBottom: 4 },
+  label: { width: 100, fontSize: 9, color: "#666", fontWeight: 600 },
   value: { flex: 1, fontSize: 10 },
-  sectionTitle: { fontSize: 11, fontWeight: 700, marginBottom: 10, color: "#111" },
-  priceBox: { backgroundColor: "#f9fafb", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 6, padding: 15, marginTop: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  priceLabel: { fontSize: 12, fontWeight: 600 },
+  deviceTable: { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 4, marginBottom: 12, overflow: "hidden" },
+  deviceRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#e5e7eb", padding: 6 },
+  deviceLabel: { width: 100, fontSize: 9, color: "#666", fontWeight: 600 },
+  deviceValue: { flex: 1, fontSize: 10 },
+  priceBox: { backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#bbf7d0", borderRadius: 6, padding: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginVertical: 12 },
+  priceLabel: { fontSize: 11, fontWeight: 600 },
   priceValue: { fontSize: 18, fontWeight: 700 },
-  signatureBlock: { marginTop: 40 },
-  signatureText: { fontSize: 9, color: "#666", marginBottom: 30 },
-  signatureLine: { borderBottomWidth: 1, borderBottomColor: "#111", width: 250, marginBottom: 4 },
-  signatureLabel: { fontSize: 8, color: "#999" },
+  contractText: { fontSize: 9, color: "#444", lineHeight: 1.5, marginVertical: 10 },
+  sigBlock: { marginTop: 20 },
+  sigImage: { height: 50, width: 180, objectFit: "contain" },
+  sigLine: { borderBottomWidth: 1, borderBottomColor: "#111", width: 200, marginTop: 8, marginBottom: 4 },
+  sigLabel: { fontSize: 8, color: "#999" },
+  sigRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 20 },
   footer: { position: "absolute", bottom: 30, left: 50, right: 50, borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 8, flexDirection: "row", justifyContent: "space-between" },
   footerText: { fontSize: 7, color: "#999" },
 });
 
-function AnkaufBeleg({ ankauf, company }: { ankauf: any; company: any }) {
+function KaufvertragPDF({ ankauf, company }: { ankauf: any; company: any }) {
   const date = new Date(ankauf.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const deviceRows = [
+    { l: "Gerätetyp", v: ankauf.geraetetyp },
+    { l: "Hersteller", v: ankauf.hersteller },
+    { l: "Modell", v: ankauf.modell },
+    ankauf.speicher ? { l: "Speicher", v: ankauf.speicher } : null,
+    ankauf.farbe ? { l: "Farbe", v: ankauf.farbe } : null,
+    ankauf.imei ? { l: "IMEI", v: ankauf.imei } : null,
+    ankauf.akku_prozent != null ? { l: "Akku", v: `${ankauf.akku_prozent}%` } : null,
+    { l: "Zustand", v: ankauf.zustand },
+  ].filter(Boolean) as { l: string; v: string }[];
+
   return createElement(Document, {},
-    createElement(Page, { size: "A4", style: s.page },
-      // Header
-      createElement(View, { style: s.header },
-        createElement(Text, { style: s.title }, "Ankaufbeleg"),
-        createElement(Text, { style: s.subtitle }, `${ankauf.ankauf_nummer} · ${date}`),
-      ),
-      createElement(View, { style: s.divider }),
+    createElement(Page, { size: "A4", style: st.page },
+      // Title
+      createElement(Text, { style: st.title }, "KAUFVERTRAG"),
+      createElement(Text, { style: st.subtitle }, `Ankaufbeleg · ${ankauf.ankauf_nummer}`),
 
-      // Company
-      createElement(Text, { style: { fontSize: 8, color: "#999", marginBottom: 10 } },
-        [company?.company_name, company?.address_line1, `${company?.zip_code ?? ""} ${company?.city ?? ""}`, company?.phone].filter(Boolean).join(" · ")
+      // Meta
+      createElement(View, { style: st.meta },
+        createElement(Text, { style: st.metaText }, `Datum: ${date}`),
+        createElement(Text, { style: st.metaText }, company?.company_name ?? "Starphone"),
       ),
 
-      // Customer
-      createElement(Text, { style: s.sectionTitle }, "Verkäufer"),
-      createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Name"),
-        createElement(Text, { style: s.value }, ankauf.kunden_name),
-      ),
-      ankauf.kunden_adresse && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Adresse"),
-        createElement(Text, { style: s.value }, ankauf.kunden_adresse),
-      ),
-      ankauf.kunden_telefon && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Telefon"),
-        createElement(Text, { style: s.value }, ankauf.kunden_telefon),
-      ),
-      ankauf.ausweis_nummer && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Ausweis-Nr."),
-        createElement(Text, { style: s.value }, ankauf.ausweis_nummer),
-      ),
-      createElement(View, { style: s.divider }),
+      createElement(View, { style: st.divider }),
 
-      // Device
-      createElement(Text, { style: s.sectionTitle }, "Gerät"),
-      createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Typ"),
-        createElement(Text, { style: s.value }, ankauf.geraetetyp),
+      // Two columns: Verkäufer / Käufer
+      createElement(View, { style: st.twoCol },
+        createElement(View, { style: st.col },
+          createElement(Text, { style: st.sectionTitle }, "Verkäufer"),
+          createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Name"), createElement(Text, { style: st.value }, ankauf.kunden_name)),
+          ankauf.kunden_adresse && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Adresse"), createElement(Text, { style: st.value }, ankauf.kunden_adresse)),
+          ankauf.kunden_telefon && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Telefon"), createElement(Text, { style: st.value }, ankauf.kunden_telefon)),
+          ankauf.ausweis_nummer && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Ausweis-Nr."), createElement(Text, { style: st.value }, ankauf.ausweis_nummer)),
+        ),
+        createElement(View, { style: st.col },
+          createElement(Text, { style: st.sectionTitle }, "Käufer"),
+          createElement(Text, { style: { fontSize: 10, marginBottom: 2 } }, "Ali Kaan Yilmaz e.K."),
+          createElement(Text, { style: { fontSize: 10, marginBottom: 2 } }, "Blondelstr. 10"),
+          createElement(Text, { style: { fontSize: 10 } }, "52062 Aachen"),
+        ),
       ),
-      createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Hersteller / Modell"),
-        createElement(Text, { style: s.value }, `${ankauf.hersteller} ${ankauf.modell}`),
+
+      createElement(View, { style: st.divider }),
+
+      // Device table
+      createElement(Text, { style: st.sectionTitle }, "Gegenstand"),
+      createElement(View, { style: st.deviceTable },
+        ...deviceRows.map((r, i) =>
+          createElement(View, { key: i, style: { ...st.deviceRow, ...(i === deviceRows.length - 1 ? { borderBottomWidth: 0 } : {}) } },
+            createElement(Text, { style: st.deviceLabel }, r.l),
+            createElement(Text, { style: st.deviceValue }, r.v),
+          )
+        ),
       ),
-      ankauf.speicher && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Speicher"),
-        createElement(Text, { style: s.value }, ankauf.speicher),
-      ),
-      ankauf.farbe && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Farbe"),
-        createElement(Text, { style: s.value }, ankauf.farbe),
-      ),
-      ankauf.imei && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "IMEI"),
-        createElement(Text, { style: s.value }, ankauf.imei),
-      ),
-      ankauf.akku_prozent != null && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Akku"),
-        createElement(Text, { style: s.value }, `${ankauf.akku_prozent}%`),
-      ),
-      createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Zustand"),
-        createElement(Text, { style: s.value }, ankauf.zustand),
-      ),
-      ankauf.beschreibung && createElement(View, { style: s.row },
-        createElement(Text, { style: s.label }, "Beschreibung"),
-        createElement(Text, { style: s.value }, ankauf.beschreibung),
+
+      ankauf.beschreibung && createElement(View, { style: st.row },
+        createElement(Text, { style: st.label }, "Beschreibung"),
+        createElement(Text, { style: st.value }, ankauf.beschreibung),
       ),
 
       // Price
-      createElement(View, { style: s.priceBox },
-        createElement(Text, { style: s.priceLabel }, "Ankaufpreis"),
-        createElement(Text, { style: s.priceValue }, `${Number(ankauf.ankauf_preis).toFixed(2)} €`),
+      createElement(View, { style: st.priceBox },
+        createElement(Text, { style: st.priceLabel }, "Kaufpreis"),
+        createElement(Text, { style: st.priceValue }, `${Number(ankauf.ankauf_preis).toFixed(2)} €`),
+      ),
+
+      // Contract text
+      createElement(Text, { style: st.contractText },
+        "Der Verkäufer versichert, dass er der rechtmäßige Eigentümer des oben genannten Gerätes ist und dieses frei von Rechten Dritter ist. Der Verkäufer bestätigt, dass das Gerät nicht gestohlen ist und keine aktive Gerätesperre (z.B. iCloud-Sperre, Google-Sperre) besteht. Der Käufer zahlt den vereinbarten Kaufpreis in bar bei Übergabe des Gerätes."
       ),
 
       // Signature
-      createElement(View, { style: s.signatureBlock },
-        createElement(Text, { style: s.signatureText },
-          "Hiermit bestätige ich den Verkauf des oben genannten Gerätes an " + (company?.company_name ?? "Starphone") + " zum angegebenen Ankaufpreis."
+      createElement(View, { style: st.sigRow },
+        createElement(View, {},
+          ankauf.unterschrift
+            ? createElement(Image, { src: ankauf.unterschrift, style: st.sigImage })
+            : createElement(View, { style: { height: 50 } }),
+          createElement(View, { style: st.sigLine }),
+          createElement(Text, { style: st.sigLabel }, "Unterschrift Verkäufer"),
         ),
-        createElement(View, { style: { flexDirection: "row", justifyContent: "space-between" } },
-          createElement(View, {},
-            createElement(View, { style: s.signatureLine }),
-            createElement(Text, { style: s.signatureLabel }, "Ort, Datum"),
-          ),
-          createElement(View, {},
-            createElement(View, { style: s.signatureLine }),
-            createElement(Text, { style: s.signatureLabel }, "Unterschrift Verkäufer"),
-          ),
+        createElement(View, {},
+          createElement(View, { style: { height: 50 } }),
+          createElement(View, { style: st.sigLine }),
+          createElement(Text, { style: st.sigLabel }, "Unterschrift Käufer"),
         ),
       ),
 
       // Footer
-      createElement(View, { style: s.footer, fixed: true },
-        createElement(Text, { style: s.footerText }, company?.company_name ?? "Starphone"),
-        createElement(Text, { style: s.footerText }, [company?.phone, company?.email].filter(Boolean).join(" · ")),
-        createElement(Text, { style: s.footerText }, [company?.iban ? `IBAN: ${company.iban}` : null].filter(Boolean).join("")),
+      createElement(View, { style: st.footer, fixed: true },
+        createElement(Text, { style: st.footerText }, company?.company_name ?? "Starphone"),
+        createElement(Text, { style: st.footerText }, [company?.phone, company?.email].filter(Boolean).join(" · ")),
+        createElement(Text, { style: st.footerText }, company?.iban ? `IBAN: ${company.iban}` : ""),
       ),
     ),
   );
@@ -155,13 +159,13 @@ export async function GET(
   if (!ankauf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const buffer = await renderToBuffer(
-    createElement(AnkaufBeleg, { ankauf, company: company ?? {} }) as any
+    createElement(KaufvertragPDF, { ankauf, company: company ?? {} }) as any
   );
 
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="Ankaufbeleg-${ankauf.ankauf_nummer}.pdf"`,
+      "Content-Disposition": `inline; filename="Kaufvertrag-${ankauf.ankauf_nummer}.pdf"`,
     },
   });
 }
