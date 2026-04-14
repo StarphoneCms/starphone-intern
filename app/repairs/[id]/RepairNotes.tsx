@@ -28,6 +28,11 @@ type Note = {
   id: string;
   note: string;
   created_at: string;
+  created_by?: string;
+};
+
+const EMAIL_NAME_MAP: Record<string, string> = {
+  "star@starphone.de": "Onur",
 };
 
 // ─── Hauptkomponente ──────────────────────────────────────────────────────────
@@ -35,18 +40,28 @@ type Note = {
 export default function RepairNotes({ repairId }: { repairId: string }) {
   const supabase = createClient();
 
-  const [notes,   setNotes]   = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [text,    setText]    = useState("");
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState(false);
+  const [notes,    setNotes]    = useState<Note[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [text,     setText]     = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [userName, setUserName] = useState("Mitarbeiter");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const email = data?.user?.email;
+      if (email) {
+        setUserName(EMAIL_NAME_MAP[email] ?? email.split("@")[0]);
+      }
+    });
+  }, [supabase]);
 
   // Verlauf laden
   const loadNotes = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("repair_notes")
-      .select("id, note, created_at")
+      .select("id, note, created_at, created_by")
       .eq("repair_id", repairId)
       .order("created_at", { ascending: false });
     setNotes(data ?? []);
@@ -55,10 +70,13 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
 
   useEffect(() => { loadNotes(); }, [loadNotes]);
 
-  // Quick-Button: Text einfügen oder ergänzen
+  // Quick-Button: Text einfügen oder entfernen (toggle)
   function addQuick(t: string) {
     setText(prev => {
-      if (prev.includes(t)) return prev;
+      if (prev.includes(t)) {
+        // Remove the text and clean up extra newlines
+        return prev.split("\n").filter(line => line.trim() !== t).join("\n").trim();
+      }
       return prev.trim() ? `${prev.trim()}\n${t}` : t;
     });
   }
@@ -71,6 +89,7 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
     const { error } = await supabase.from("repair_notes").insert({
       repair_id: repairId,
       note: text.trim(),
+      created_by: userName,
     });
     if (error) { alert("Fehler: " + error.message); setSaving(false); return; }
     setText("");
@@ -170,13 +189,13 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
                         <circle cx="4" cy="4" r="2.5" stroke="#9ca3af" strokeWidth="1" />
                       </svg>
                     ) : (
-                      <span className="text-[7px] font-bold text-white">M</span>
+                      <span className="text-[7px] font-bold text-white">{(note.created_by ?? "M")[0].toUpperCase()}</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[11px] font-medium text-gray-600">
-                        {isSystem ? "System" : "Mitarbeiter"}
+                        {isSystem ? "System" : (note.created_by ?? "Mitarbeiter")}
                       </span>
                       <span className="text-[10px] text-gray-300">
                         {formatDate(note.created_at)}
