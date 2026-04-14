@@ -208,7 +208,7 @@ export default function AppHeader() {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-100"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="flex">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => ["/dashboard", "/customers", "/repairs", "/prices", "/inventory"].includes(item.href)).map((item) => {
             const active = isActive(item.href);
             return (
               <Link key={item.href} href={item.href}
