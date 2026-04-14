@@ -141,7 +141,6 @@ export default function NewAnkaufForm() {
       nr = `AN-${year}-${String((count ?? 0) + 1).padStart(3, "0")}`;
     }
 
-    const deviceComplete = !!(hersteller.trim() && modell.trim() && imeiVal.trim() && preis && zustand);
     const fullName = `${vorname.trim()} ${nachname.trim()}`;
 
     const { data, error } = await supabase.from("ankauf").insert({
@@ -154,7 +153,7 @@ export default function NewAnkaufForm() {
       geraetetyp: typ || null, hersteller: hersteller.trim() || null, modell: modell.trim() || null,
       zustand: zustand || "gebraucht", imei: imeiVal || null, farbe: farbe || null,
       notiz: notiz || null, ankauf_preis: preis ? parseFloat(preis) : 0,
-      belegnummer_kasse: beleg || null, status: deviceComplete ? "vollstaendig" : "offen",
+      belegnummer_kasse: beleg || null, status: "offen",
     }).select("id").single();
 
     setSaving(false);

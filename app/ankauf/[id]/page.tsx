@@ -25,7 +25,6 @@ const ZUSTAND_BTN = [
 ];
 const STATUS_CLS: Record<string, { label: string; cls: string }> = {
   offen: { label: "Offen", cls: "text-amber-700 bg-amber-50 border-amber-200" },
-  vollstaendig: { label: "Vollständig", cls: "text-blue-700 bg-blue-50 border-blue-200" },
   abgeschlossen: { label: "Abgeschlossen", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" },
 };
 const SPEICHER = ["32GB", "64GB", "128GB", "256GB", "512GB", "1TB", "Sonstiges"];
@@ -126,8 +125,7 @@ export default function AnkaufDetailPage() {
   async function saveAll() {
     if (!item) return; setSaving(true); setSaved("");
     const sig = canvasRef.current && !item.unterschrift ? canvasRef.current.toDataURL("image/png") : item.unterschrift;
-    const deviceComplete = !!(eHersteller.trim() && eModell.trim() && imei.trim() && ePreis && parseFloat(ePreis) > 0 && zustand);
-    const ns = item.status === "abgeschlossen" ? "abgeschlossen" : deviceComplete ? "vollstaendig" : "offen";
+    const ns = item.status === "abgeschlossen" ? "abgeschlossen" : "offen";
     await supabase.from("ankauf").update({
       kunden_name: eName.trim() || item.kunden_name, kunden_telefon: eTelefon || null,
       ausweis_nummer: eAusweis || null, hersteller: eHersteller.trim() || item.hersteller,

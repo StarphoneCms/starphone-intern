@@ -13,11 +13,10 @@ type Ankauf = {
 
 const STATUS_CLS: Record<string, { label: string; cls: string }> = {
   offen: { label: "Offen", cls: "text-amber-700 bg-amber-50 border-amber-200" },
-  vollstaendig: { label: "Vollständig", cls: "text-blue-700 bg-blue-50 border-blue-200" },
   abgeschlossen: { label: "Abgeschlossen", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" },
 };
-const TABS = ["Alle", "Offen", "Vollständig", "Abgeschlossen"];
-const TAB_MAP: Record<string, string> = { Offen: "offen", "Vollständig": "vollstaendig", Abgeschlossen: "abgeschlossen" };
+const TABS = ["Alle", "Offen", "Abgeschlossen"];
+const TAB_MAP: Record<string, string> = { Offen: "offen", Abgeschlossen: "abgeschlossen" };
 
 export default function AnkaufClient() {
   const supabase = createClient();
@@ -65,14 +64,10 @@ export default function AnkaufClient() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
             <div className="text-xl font-bold text-amber-700">{items.filter(a => a.status === "offen").length}</div>
             <div className="text-[11px] text-amber-600">Offen</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-            <div className="text-xl font-bold text-blue-700">{items.filter(a => a.status === "vollstaendig").length}</div>
-            <div className="text-[11px] text-blue-600">Vollständig</div>
           </div>
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
             <div className="text-xl font-bold text-emerald-700">{items.filter(a => a.status === "abgeschlossen").length}</div>
