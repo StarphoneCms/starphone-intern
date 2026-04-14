@@ -27,11 +27,23 @@ export default function AnkaufClient() {
   const [filter, setFilter] = useState("Alle");
   const [search, setSearch] = useState("");
   const [exportMonth, setExportMonth] = useState("");
+  const [deleteId, setDeleteId] = useState<{ id: string; nr: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     supabase.from("ankauf").select("*").order("created_at", { ascending: false })
       .then(({ data }) => { setItems((data ?? []) as Ankauf[]); setLoading(false); });
   }, [supabase]);
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    // Delete storage files
+    await supabase.storage.from("ankauf-docs").remove([`${deleteId.id}/ausweis_vorne.jpg`, `${deleteId.id}/ausweis_rueckseite.jpg`, `${deleteId.id}/kaufvertrag.pdf`]);
+    await supabase.from("ankauf").delete().eq("id", deleteId.id);
+    setItems(prev => prev.filter(a => a.id !== deleteId.id));
+    setDeleteId(null); setDeleting(false);
+  }
 
   const filtered = items
     .filter(a => filter === "Alle" || a.status === TAB_MAP[filter])
@@ -107,6 +119,7 @@ export default function AnkaufClient() {
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Beleg</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Status</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Datum</th>
+                  <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -122,6 +135,24 @@ export default function AnkaufClient() {
                       <td className="px-4 py-3 text-gray-500 font-mono text-[11px]">{a.belegnummer_kasse ?? "—"}</td>
                       <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${sc.cls}`}>{sc.label}</span></td>
                       <td className="px-4 py-3 text-gray-500">{new Date(a.created_at).toLocaleDateString("de-DE")}</td>
+                      <td className="px-2 py-3">
+                        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => router.push(`/ankauf/${a.id}`)} title="Bearbeiten"
+                            className="w-7 h-7 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2L4 10H2v-2l6.5-6.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                          </button>
+                          {a.status !== "abgeschlossen" ? (
+                            <button onClick={() => setDeleteId({ id: a.id, nr: a.ankauf_nummer })} title="Löschen"
+                              className="w-7 h-7 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors">
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M4.5 3V2h3v1M3 3v7a1 1 0 001 1h4a1 1 0 001-1V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </button>
+                          ) : (
+                            <span className="w-7 h-7 rounded-md flex items-center justify-center text-gray-300 cursor-not-allowed" title="Abgeschlossene Ankäufe können nicht gelöscht werden">
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M4.5 3V2h3v1M3 3v7a1 1 0 001 1h4a1 1 0 001-1V3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -130,6 +161,24 @@ export default function AnkaufClient() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h2 className="text-[15px] font-semibold text-gray-900">Ankauf löschen?</h2>
+            <p className="text-[13px] text-gray-600">Ankauf <span className="font-mono font-semibold">{deleteId.nr}</span> wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteId(null)}
+                className="h-8 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors">Abbrechen</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="h-8 px-4 rounded-lg bg-red-600 text-white text-[12px] font-medium hover:bg-red-700 transition-colors disabled:opacity-50">
+                {deleting ? "Löschen..." : "Löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

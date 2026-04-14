@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -37,6 +37,7 @@ function Row({ label, value }: { label: string; value?: string | number | null }
 
 export default function AnkaufDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const supabase = createClient();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dw = useRef(false);
@@ -46,8 +47,20 @@ export default function AnkaufDetailPage() {
   const [enlarge, setEnlarge] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState("");
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Editable
+  // Editable Phase 1
+  const [eName, setEName] = useState("");
+  const [eTelefon, setETelefon] = useState("");
+  const [eAusweis, setEAusweis] = useState("");
+  const [eHersteller, setEHersteller] = useState("");
+  const [eModell, setEModell] = useState("");
+  const [eTyp, setETyp] = useState("");
+  const [ePreis, setEPreis] = useState("");
+  const [eBeleg, setEBeleg] = useState("");
+
+  // Editable Phase 2
   const [email, setEmail] = useState("");
   const [strasse, setStrasse] = useState("");
   const [plz, setPlz] = useState("");
@@ -67,6 +80,10 @@ export default function AnkaufDetailPage() {
     supabase.from("ankauf").select("*").eq("id", id).single().then(({ data }) => {
       const a = data as A | null; setItem(a);
       if (a) {
+        setEName(a.kunden_name); setETelefon(a.kunden_telefon ?? "");
+        setEAusweis(a.ausweis_nummer ?? ""); setEHersteller(a.hersteller);
+        setEModell(a.modell); setETyp(a.geraetetyp);
+        setEPreis(String(a.ankauf_preis)); setEBeleg(a.belegnummer_kasse ?? "");
         setEmail(a.kunden_email ?? ""); setStrasse(a.kunden_strasse ?? "");
         setPlz(a.kunden_plz ?? ""); setOrt(a.kunden_ort ?? "");
         setZustand(a.zustand ?? ""); setSpeicher(a.speicher ?? "");
@@ -110,12 +127,17 @@ export default function AnkaufDetailPage() {
     const complete = !!(imei.trim() && sig && cc && zustand);
     const ns = item.status === "abgeschlossen" ? "abgeschlossen" : complete ? "vollstaendig" : "offen";
     await supabase.from("ankauf").update({
+      kunden_name: eName.trim() || item.kunden_name, kunden_telefon: eTelefon || null,
+      ausweis_nummer: eAusweis || null, hersteller: eHersteller.trim() || item.hersteller,
+      modell: eModell.trim() || item.modell, geraetetyp: eTyp || item.geraetetyp,
+      ankauf_preis: ePreis ? parseFloat(ePreis) : item.ankauf_preis,
+      belegnummer_kasse: eBeleg || null,
       kunden_email: email || null, kunden_strasse: strasse || null, kunden_plz: plz || null, kunden_ort: ort || null,
       zustand: zustand || null, speicher: speicher || null, farbe: farbe || null, imei: imei || null,
       akku_prozent: akku ? parseInt(akku) : null, notiz: notiz || null,
       ausweis_rueckseite: rueckUrl, unterschrift: sig, kaufvertrag_akzeptiert: cc, status: ns,
     }).eq("id", item.id);
-    setItem(prev => prev ? { ...prev, unterschrift: sig ?? undefined, status: ns, kaufvertrag_akzeptiert: cc, zustand: zustand || undefined } : prev);
+    setItem(prev => prev ? { ...prev, kunden_name: eName.trim() || prev.kunden_name, kunden_telefon: eTelefon || undefined, ausweis_nummer: eAusweis || undefined, hersteller: eHersteller.trim() || prev.hersteller, modell: eModell.trim() || prev.modell, geraetetyp: eTyp || prev.geraetetyp, ankauf_preis: ePreis ? parseFloat(ePreis) : prev.ankauf_preis, belegnummer_kasse: eBeleg || undefined, unterschrift: sig ?? undefined, status: ns, kaufvertrag_akzeptiert: cc, zustand: zustand || undefined } : prev);
     setSaving(false); setSaved("Gespeichert"); setTimeout(() => setSaved(""), 2000);
   }
 
@@ -157,6 +179,13 @@ export default function AnkaufDetailPage() {
     setSaved("Ins Inventar gebucht"); setTimeout(() => setSaved(""), 2000);
   }
 
+  async function handleDelete() {
+    if (!item) return; setDeleting(true);
+    await supabase.storage.from("ankauf-docs").remove([`${item.id}/ausweis_vorne.jpg`, `${item.id}/ausweis_rueckseite.jpg`, `${item.id}/kaufvertrag.pdf`]);
+    await supabase.from("ankauf").delete().eq("id", item.id);
+    router.push("/ankauf");
+  }
+
   if (loading) return <div className="flex items-center justify-center min-h-screen text-gray-400 text-sm">Laden...</div>;
   if (!item) return <div className="flex items-center justify-center min-h-screen text-gray-400 text-sm">Nicht gefunden</div>;
 
@@ -186,26 +215,35 @@ export default function AnkaufDetailPage() {
             <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium border ${sc.cls}`}>{sc.label}</span>
             {item.kaufvertrag_pdf_url && <a href={item.kaufvertrag_pdf_url} target="_blank" className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center">PDF</a>}
             <a href={`/api/ankauf/${item.id}/pdf`} target="_blank" className="h-8 px-3 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors flex items-center">PDF herunterladen</a>
+            {!isDone && (
+              <button onClick={() => setShowDelete(true)}
+                className="h-8 px-3 rounded-lg border border-red-200 text-[12px] text-red-600 hover:bg-red-50 transition-colors flex items-center">
+                Löschen
+              </button>
+            )}
           </div>
         </div>
 
         {isOffen && <div className="mb-5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-[12px] text-amber-800"><span className="font-semibold">⚠ Nicht vollständig</span> — Details noch ausfüllen (IMEI, Zustand, Adresse).</div>}
         {saved && <div className="mb-4 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-[12px] text-emerald-700">{saved}</div>}
 
-        {/* Preis */}
-        <div className="rounded-xl border border-gray-100 overflow-hidden mb-5 bg-gray-50 p-4 flex items-center justify-between">
-          <div><span className="text-sm text-gray-500">Ankaufpreis</span>{item.belegnummer_kasse && <span className="text-[11px] text-gray-400 ml-3">Beleg: {item.belegnummer_kasse}</span>}</div>
-          <span className="text-2xl font-bold text-gray-900">{Number(item.ankauf_preis).toFixed(2)} €</span>
+        {/* Preis & Kasse */}
+        <div className="rounded-xl border border-gray-100 overflow-hidden mb-5">
+          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100"><span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">Preis & Kasse</span></div>
+          <div className="p-4 grid grid-cols-2 gap-3">
+            <div><label className={lbl}>Ankaufpreis (€)</label><input type="number" step="0.01" min="0" value={ePreis} onChange={e => setEPreis(e.target.value)} className={`${inp} text-lg font-semibold`} /></div>
+            <div><label className={lbl}>Belegnr. Kasse</label><input type="text" value={eBeleg} onChange={e => setEBeleg(e.target.value)} className={inp} /></div>
+          </div>
         </div>
 
         {/* Kundendaten */}
         <div className="rounded-xl border border-gray-100 overflow-hidden mb-5">
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100"><span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">Kundendaten</span></div>
-          <div className="p-4 space-y-2">
-            <Row label="Name" value={item.kunden_name} />
-            <Row label="Telefon" value={item.kunden_telefon} />
-            <Row label="Ausweis-Nr." value={item.ausweis_nummer} />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          <div className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div><label className={lbl}>Name</label><input type="text" value={eName} onChange={e => setEName(e.target.value)} className={inp} /></div>
+              <div><label className={lbl}>Telefon</label><input type="tel" value={eTelefon} onChange={e => setETelefon(e.target.value)} className={inp} /></div>
+              <div><label className={lbl}>Ausweis-Nr.</label><input type="text" value={eAusweis} onChange={e => setEAusweis(e.target.value)} className={inp} /></div>
               <div><label className={lbl}>E-Mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inp} /></div>
               <div><label className={lbl}>Straße</label><input type="text" value={strasse} onChange={e => setStrasse(e.target.value)} className={inp} /></div>
               <div><label className={lbl}>PLZ</label><input type="text" value={plz} onChange={e => setPlz(e.target.value)} className={inp} /></div>
@@ -239,10 +277,12 @@ export default function AnkaufDetailPage() {
         <div className="rounded-xl border border-gray-100 overflow-hidden mb-5">
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100"><span className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest">Gerät Details</span></div>
           <div className="p-4">
-            <Row label="Typ" value={item.geraetetyp} />
-            <Row label="Hersteller" value={item.hersteller} />
-            <Row label="Modell" value={item.modell} />
-            <div className="pt-3 border-t border-gray-100 mt-3 space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+              <div><label className={lbl}>Gerätetyp</label><input type="text" value={eTyp} onChange={e => setETyp(e.target.value)} className={inp} /></div>
+              <div><label className={lbl}>Hersteller</label><input type="text" value={eHersteller} onChange={e => setEHersteller(e.target.value)} className={inp} /></div>
+              <div><label className={lbl}>Modell</label><input type="text" value={eModell} onChange={e => setEModell(e.target.value)} className={inp} /></div>
+            </div>
+            <div className="pt-3 border-t border-gray-100 space-y-3">
               <div><label className={lbl}>Zustand</label>
                 <div className="flex gap-2">{ZUSTAND_BTN.map(z => <button key={z.v} type="button" onClick={() => setZustand(z.v)} className={`px-4 py-2 rounded-lg text-[12px] font-medium border-2 transition-all ${zustand === z.v ? z.c : "border-gray-200 text-gray-500"}`}>{z.l}</button>)}</div>
               </div>
@@ -313,6 +353,20 @@ export default function AnkaufDetailPage() {
           <button onClick={saveAll} disabled={saving} className="h-8 px-5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors disabled:opacity-50">{saving ? "..." : "Änderungen speichern"}</button>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h2 className="text-[15px] font-semibold text-gray-900">Ankauf löschen?</h2>
+            <p className="text-[13px] text-gray-600">Ankauf <span className="font-mono font-semibold">{item.ankauf_nummer}</span> wirklich löschen?</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDelete(false)} className="h-8 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors">Abbrechen</button>
+              <button onClick={handleDelete} disabled={deleting} className="h-8 px-4 rounded-lg bg-red-600 text-white text-[12px] font-medium hover:bg-red-700 transition-colors disabled:opacity-50">{deleting ? "Löschen..." : "Löschen"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {enlarge && <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setEnlarge(null)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
