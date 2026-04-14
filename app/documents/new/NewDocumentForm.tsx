@@ -89,6 +89,7 @@ export default function NewDocumentForm({ prefillType, repairId }: FormProps) {
   const [showPriceDropdown, setShowPriceDropdown] = useState(false);
   const priceRef = useRef<HTMLDivElement>(null);
 
+  const [templates, setTemplates] = useState<{ id: string; name: string; header_text: string | null; footer_text: string | null }[]>([]);
   const [headerNote, setHeaderNote] = useState("");
   const [footerNote, setFooterNote] = useState("");
   const [docDate, setDocDate]       = useState(new Date().toISOString().split("T")[0]);
@@ -137,6 +138,26 @@ export default function NewDocumentForm({ prefillType, repairId }: FormProps) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // ─── Load templates when docType changes ─────────────────────────────────
+  useEffect(() => {
+    if (!docType) { setTemplates([]); return; }
+    supabase
+      .from("document_templates")
+      .select("id, name, header_text, footer_text, is_default")
+      .or(`document_type.eq.${docType},document_type.is.null`)
+      .order("name")
+      .then(({ data }) => {
+        const tpls = data ?? [];
+        setTemplates(tpls);
+        const def = tpls.find((t: any) => t.is_default);
+        if (def && !headerNote && !footerNote && !repairId) {
+          setHeaderNote(def.header_text ?? "");
+          setFooterNote(def.footer_text ?? "");
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docType]);
 
   // ─── Prefill from repair ──────────────────────────────────────────────────
   useEffect(() => {
@@ -533,13 +554,29 @@ export default function NewDocumentForm({ prefillType, repairId }: FormProps) {
             {docType === "rechnung" && (
               <div><label className={labelCls}>Zahlungsziel</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} /></div>
             )}
+            {templates.length > 0 && (
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Textvorlage</label>
+                <select
+                  onChange={(e) => {
+                    const tpl = templates.find((t) => t.id === e.target.value);
+                    if (tpl) { setHeaderNote(tpl.header_text ?? ""); setFooterNote(tpl.footer_text ?? ""); }
+                  }}
+                  defaultValue=""
+                  className={inputCls}
+                >
+                  <option value="" disabled>Vorlage wählen …</option>
+                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+            )}
             <div className="sm:col-span-2">
-              <label className={labelCls}>Kopftext</label>
+              <label className={labelCls}>Einleitungstext</label>
               <textarea value={headerNote} onChange={(e) => setHeaderNote(e.target.value)} placeholder="Einleitungstext …" rows={2}
                 className="w-full px-3 py-2 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none" />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelCls}>Fußtext</label>
+              <label className={labelCls}>Schlusstext</label>
               <textarea value={footerNote} onChange={(e) => setFooterNote(e.target.value)} placeholder="Schlusstext, Zahlungshinweise …" rows={2}
                 className="w-full px-3 py-2 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none" />
             </div>

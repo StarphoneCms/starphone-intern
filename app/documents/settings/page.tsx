@@ -4,6 +4,15 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/browser";
 
+type Template = {
+  id: string;
+  name: string;
+  document_type: string | null;
+  header_text: string | null;
+  footer_text: string | null;
+  is_default: boolean;
+};
+
 type Settings = {
   id?: string;
   company_name: string;
@@ -55,6 +64,13 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
+const DOC_TYPES = [
+  { value: "", label: "Alle Typen" },
+  { value: "angebot", label: "Angebot" },
+  { value: "rechnung", label: "Rechnung" },
+  { value: "lieferschein", label: "Lieferschein" },
+];
+
 export default function CompanySettingsPage() {
   const supabase = createClient();
   const [settings, setSettings] = useState<Settings>(EMPTY);
@@ -62,6 +78,16 @@ export default function CompanySettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+
+  // Templates state
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [editTpl, setEditTpl] = useState<Partial<Template> | null>(null);
+  const [tplSaving, setTplSaving] = useState(false);
+
+  async function loadTemplates() {
+    const { data } = await supabase.from("document_templates").select("*").order("name");
+    setTemplates((data ?? []) as Template[]);
+  }
 
   useEffect(() => {
     supabase
@@ -92,7 +118,34 @@ export default function CompanySettingsPage() {
         }
         setLoading(false);
       });
+    loadTemplates();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
+
+  async function saveTpl() {
+    if (!editTpl?.name?.trim()) return;
+    setTplSaving(true);
+    const payload = {
+      name: editTpl.name,
+      document_type: editTpl.document_type || null,
+      header_text: editTpl.header_text || null,
+      footer_text: editTpl.footer_text || null,
+      is_default: editTpl.is_default ?? false,
+    };
+    if (editTpl.id) {
+      await supabase.from("document_templates").update(payload).eq("id", editTpl.id);
+    } else {
+      await supabase.from("document_templates").insert(payload);
+    }
+    setEditTpl(null);
+    setTplSaving(false);
+    loadTemplates();
+  }
+
+  async function deleteTpl(id: string) {
+    await supabase.from("document_templates").delete().eq("id", id);
+    loadTemplates();
+  }
 
   function set(field: keyof Settings, value: string) {
     setSettings((p) => ({ ...p, [field]: value }));
@@ -309,6 +362,96 @@ export default function CompanySettingsPage() {
                 rows={3}
                 className="w-full px-3 py-2 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none" />
             </div>
+          </div>
+        </SectionCard>
+
+        {/* ── Textvorlagen ─────────────────────────────────────────── */}
+        <SectionCard title="Textvorlagen">
+          <div className="space-y-3">
+            {templates.map((t) => (
+              <div key={t.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[12.5px] font-semibold text-gray-900">{t.name}</span>
+                    {t.is_default && <span className="text-[10px] px-1.5 py-0.5 rounded bg-black text-white">Standard</span>}
+                    {t.document_type && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                        {DOC_TYPES.find((d) => d.value === t.document_type)?.label ?? t.document_type}
+                      </span>
+                    )}
+                  </div>
+                  {t.header_text && <p className="text-[11px] text-gray-500 truncate">Kopf: {t.header_text}</p>}
+                  {t.footer_text && <p className="text-[11px] text-gray-500 truncate">Fuß: {t.footer_text}</p>}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => setEditTpl({ ...t })}
+                    className="h-7 px-2.5 rounded-md border border-gray-200 text-[11px] text-gray-600 hover:bg-white transition-colors">
+                    Bearbeiten
+                  </button>
+                  <button onClick={() => deleteTpl(t.id)}
+                    className="h-7 px-2.5 rounded-md border border-gray-200 text-[11px] text-red-500 hover:bg-red-50 transition-colors">
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            ))}
+            {templates.length === 0 && (
+              <p className="text-[12px] text-gray-400 text-center py-4">Keine Vorlagen vorhanden</p>
+            )}
+
+            {/* Add / Edit form */}
+            {editTpl ? (
+              <div className="p-4 rounded-lg border border-gray-200 bg-white space-y-3">
+                <h3 className="text-[12px] font-semibold text-gray-900">{editTpl.id ? "Vorlage bearbeiten" : "Neue Vorlage"}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Name *</label>
+                    <input type="text" value={editTpl.name ?? ""} onChange={(e) => setEditTpl((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="z.B. Standard Rechnung" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Dokumenttyp</label>
+                    <select value={editTpl.document_type ?? ""} onChange={(e) => setEditTpl((p) => ({ ...p, document_type: e.target.value || null }))}
+                      className={inputCls}>
+                      {DOC_TYPES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelCls}>Einleitungstext</label>
+                    <textarea value={editTpl.header_text ?? ""} onChange={(e) => setEditTpl((p) => ({ ...p, header_text: e.target.value }))}
+                      rows={2} placeholder="Einleitungstext …"
+                      className="w-full px-3 py-2 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelCls}>Schlusstext</label>
+                    <textarea value={editTpl.footer_text ?? ""} onChange={(e) => setEditTpl((p) => ({ ...p, footer_text: e.target.value }))}
+                      rows={2} placeholder="Schlusstext …"
+                      className="w-full px-3 py-2 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none" />
+                  </div>
+                  <div className="sm:col-span-2 flex items-center gap-2">
+                    <input type="checkbox" id="tpl-default" checked={editTpl.is_default ?? false}
+                      onChange={(e) => setEditTpl((p) => ({ ...p, is_default: e.target.checked }))}
+                      className="rounded border-gray-300" />
+                    <label htmlFor="tpl-default" className="text-[12px] text-gray-700">Als Standard-Vorlage verwenden</label>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditTpl(null)}
+                    className="h-8 px-3.5 rounded-lg border border-gray-200 text-[12px] text-gray-500 hover:bg-gray-50 transition-colors">
+                    Abbrechen
+                  </button>
+                  <button onClick={saveTpl} disabled={tplSaving || !editTpl.name?.trim()}
+                    className="h-8 px-3.5 rounded-lg bg-black text-white text-[12px] font-medium hover:bg-gray-900 transition-colors disabled:opacity-50">
+                    {tplSaving ? "Speichern …" : "Vorlage speichern"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setEditTpl({ name: "", document_type: null, header_text: "", footer_text: "", is_default: false })}
+                className="h-8 px-3.5 rounded-lg border border-dashed border-gray-300 text-[12px] text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors w-full">
+                + Neue Vorlage
+              </button>
+            )}
           </div>
         </SectionCard>
 
