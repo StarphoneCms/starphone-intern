@@ -29,6 +29,7 @@ type Note = {
   note: string;
   created_at: string;
   created_by?: string;
+  note_author?: string;
 };
 
 const EMAIL_NAME_MAP: Record<string, string> = {
@@ -46,12 +47,16 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
   const [saving,   setSaving]   = useState(false);
   const [saved,    setSaved]    = useState(false);
   const [userName, setUserName] = useState("Mitarbeiter");
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      const email = data?.user?.email;
-      if (email) {
-        setUserName(EMAIL_NAME_MAP[email] ?? email.split("@")[0]);
+      if (data?.user) {
+        setUserId(data.user.id);
+        const email = data.user.email;
+        if (email) {
+          setUserName(EMAIL_NAME_MAP[email] ?? email.split("@")[0]);
+        }
       }
     });
   }, [supabase]);
@@ -61,7 +66,7 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
     setLoading(true);
     const { data } = await supabase
       .from("repair_notes")
-      .select("id, note, created_at, created_by")
+      .select("id, note, created_at, created_by, note_author")
       .eq("repair_id", repairId)
       .order("created_at", { ascending: false });
     setNotes(data ?? []);
@@ -89,7 +94,8 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
     const { error } = await supabase.from("repair_notes").insert({
       repair_id: repairId,
       note: text.trim(),
-      created_by: userName,
+      created_by: userId,
+      note_author: userName,
     });
     if (error) { alert("Fehler: " + error.message); setSaving(false); return; }
     setText("");
@@ -189,13 +195,13 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
                         <circle cx="4" cy="4" r="2.5" stroke="#9ca3af" strokeWidth="1" />
                       </svg>
                     ) : (
-                      <span className="text-[7px] font-bold text-white">{(note.created_by ?? "M")[0].toUpperCase()}</span>
+                      <span className="text-[7px] font-bold text-white">{(note.note_author ?? "M")[0].toUpperCase()}</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[11px] font-medium text-gray-600">
-                        {isSystem ? "System" : (note.created_by ?? "Mitarbeiter")}
+                        {isSystem ? "System" : (note.note_author ?? "Mitarbeiter")}
                       </span>
                       <span className="text-[10px] text-gray-300">
                         {formatDate(note.created_at)}
