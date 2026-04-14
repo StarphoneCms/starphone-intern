@@ -56,6 +56,14 @@ const NAV_ITEMS = [
       <circle cx="7" cy="7" r="1" fill="currentColor"/>
     </svg>
   )},
+  { href: "/ankauf", label: "Ankauf", icon: (active: boolean) => (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M3 10V6a2 2 0 012-2h10a2 2 0 012 2v4" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+      <path d="M2 10h16v6a2 2 0 01-2 2H4a2 2 0 01-2-2v-6z" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
+      <path d="M10 10v4" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round"/>
+      <path d="M8 12l2 2 2-2" stroke="currentColor" strokeWidth={active ? 2 : 1.5} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )},
   { href: "/staff-planning", label: "Personalplanung", icon: (active: boolean) => (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <circle cx="7" cy="6" r="2.5" stroke="currentColor" strokeWidth={active ? 2 : 1.5}/>
