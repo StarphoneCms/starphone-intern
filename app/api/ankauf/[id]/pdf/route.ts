@@ -77,7 +77,7 @@ function KaufvertragPDF({ ankauf, company }: { ankauf: any; company: any }) {
         createElement(View, { style: st.col },
           createElement(Text, { style: st.sectionTitle }, "Verkäufer"),
           createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Name"), createElement(Text, { style: st.value }, ankauf.kunden_name)),
-          ankauf.kunden_adresse && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Adresse"), createElement(Text, { style: st.value }, ankauf.kunden_adresse)),
+          (ankauf.kunden_strasse || ankauf.kunden_plz || ankauf.kunden_ort) && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Adresse"), createElement(Text, { style: st.value }, [ankauf.kunden_strasse, `${ankauf.kunden_plz ?? ""} ${ankauf.kunden_ort ?? ""}`.trim()].filter(Boolean).join(", "))),
           ankauf.kunden_telefon && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Telefon"), createElement(Text, { style: st.value }, ankauf.kunden_telefon)),
           ankauf.ausweis_nummer && createElement(View, { style: st.row }, createElement(Text, { style: st.label }, "Ausweis-Nr."), createElement(Text, { style: st.value }, ankauf.ausweis_nummer)),
         ),
