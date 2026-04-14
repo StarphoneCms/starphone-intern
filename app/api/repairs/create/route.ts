@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const insertData = {
       auftragsnummer:        generateAuftragsnummer(),
-      status:                "in_reparatur",
+      status:                "angenommen",
       annahme_datum:         now,
       letzter_statuswechsel: now,
       kunden_name,

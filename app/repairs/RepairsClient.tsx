@@ -9,14 +9,15 @@ import { StatusPill, RepairStatus } from "@/lib/repair-types";
 import { useRealtime } from "@/hooks/useRealtime";
 
 const FILTER_TABS: { key: string; label: string }[] = [
-  { key: "alle",                label: "Alle"          },
-  { key: "angenommen",          label: "Angenommen"    },
-  { key: "in_diagnose",         label: "In Diagnose"   },
-  { key: "in_reparatur",        label: "In Reparatur"  },
-  { key: "rueckfrage_kunde",    label: "Rückfrage"     },
-  { key: "ersatzteil_bestellt", label: "Ersatzteil"    },
-  { key: "abholbereit",         label: "Abholbereit"   },
-  { key: "abgeschlossen",       label: "Abgeschlossen" },
+  { key: "alle",                label: "Alle"              },
+  { key: "angenommen",          label: "Angenommen"        },
+  { key: "in_diagnose",         label: "In Diagnose"       },
+  { key: "in_reparatur",        label: "In Reparatur"      },
+  { key: "warten_ersatzteile",  label: "Warten Ersatzteile"},
+  { key: "aussendienst",        label: "Außendienst"       },
+  { key: "warten_kunde",        label: "Warten Kunde"      },
+  { key: "abholbereit",         label: "Abholbereit"       },
+  { key: "abgeschlossen",       label: "Abgeschlossen"     },
 ];
 
 // Mitarbeiter → Initialen + Farbe

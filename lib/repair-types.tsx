@@ -3,38 +3,35 @@
 
 export type RepairStatus =
   | "angenommen"
-  | "in_arbeit"
-  | "in_reparatur"
   | "in_diagnose"
-  | "rueckfrage_kunde"
-  | "ersatzteil_bestellt"
-  | "fertig"
+  | "in_reparatur"
+  | "warten_ersatzteile"
+  | "aussendienst"
+  | "warten_kunde"
   | "abholbereit"
-  | "abgeholt"
-  | "abgeschlossen"
-  | "storniert";
+  | "abgeschlossen";
 
 export const STATUS_CONFIG: Record<
   RepairStatus,
   { label: string; dot: string; bg: string; text: string; border: string }
 > = {
-  angenommen:          { label: "Angenommen",         dot: "bg-amber-400",  bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200"  },
-  in_diagnose:         { label: "In Diagnose",         dot: "bg-blue-400",   bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200"   },
-  in_arbeit:           { label: "In Arbeit",           dot: "bg-indigo-400", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  in_reparatur:        { label: "In Reparatur",        dot: "bg-indigo-500", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-  rueckfrage_kunde:    { label: "Rückfrage",           dot: "bg-red-400",    bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200"    },
-  ersatzteil_bestellt: { label: "Ersatzteil bestellt", dot: "bg-orange-400", bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
-  fertig:              { label: "Fertig",              dot: "bg-teal-400",   bg: "bg-teal-50",   text: "text-teal-700",   border: "border-teal-200"   },
-  abholbereit:         { label: "Abholbereit",         dot: "bg-green-500",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200"  },
-  abgeholt:            { label: "Abgeholt",            dot: "bg-green-400",  bg: "bg-green-50",  text: "text-green-600",  border: "border-green-200"  },
-  abgeschlossen:       { label: "Abgeschlossen",       dot: "bg-gray-400",   bg: "bg-gray-100",  text: "text-gray-500",   border: "border-gray-200"   },
-  storniert:           { label: "Storniert",           dot: "bg-gray-300",   bg: "bg-gray-50",   text: "text-gray-400",   border: "border-gray-200"   },
+  angenommen:          { label: "Angenommen",              dot: "bg-gray-400",   bg: "bg-gray-50",   text: "text-gray-700",   border: "border-gray-200"   },
+  in_diagnose:         { label: "In Diagnose",             dot: "bg-sky-400",    bg: "bg-sky-50",    text: "text-sky-700",    border: "border-sky-200"    },
+  in_reparatur:        { label: "In Reparatur",            dot: "bg-blue-500",   bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200"   },
+  warten_ersatzteile:  { label: "Warten auf Ersatzteile",  dot: "bg-amber-500",  bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200"  },
+  aussendienst:        { label: "Außendienst",             dot: "bg-violet-500", bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
+  warten_kunde:        { label: "Warten auf Kunden",       dot: "bg-orange-500", bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+  abholbereit:         { label: "Abholbereit",             dot: "bg-green-500",  bg: "bg-green-50",  text: "text-green-700",  border: "border-green-200"  },
+  abgeschlossen:       { label: "Abgeschlossen",           dot: "bg-gray-400",   bg: "bg-gray-100",  text: "text-gray-500",   border: "border-gray-200"   },
 };
 
 export const STATUS_FLOW: RepairStatus[] = [
   "angenommen",
   "in_diagnose",
   "in_reparatur",
+  "warten_ersatzteile",
+  "aussendienst",
+  "warten_kunde",
   "abholbereit",
   "abgeschlossen",
 ];
@@ -42,15 +39,12 @@ export const STATUS_FLOW: RepairStatus[] = [
 export const ALL_STATUS_OPTIONS: RepairStatus[] = [
   "angenommen",
   "in_diagnose",
-  "in_arbeit",
   "in_reparatur",
-  "rueckfrage_kunde",
-  "ersatzteil_bestellt",
-  "fertig",
+  "warten_ersatzteile",
+  "aussendienst",
+  "warten_kunde",
   "abholbereit",
-  "abgeholt",
   "abgeschlossen",
-  "storniert",
 ];
 
 // ─── DB Typen ─────────────────────────────────────────────────────────────────

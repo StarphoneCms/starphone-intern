@@ -8,11 +8,12 @@ import { createClient } from "@/lib/supabase/browser";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Status =
+  | "angenommen"
+  | "in_diagnose"
   | "in_reparatur"
   | "warten_ersatzteile"
-  | "warten_kunde"
   | "aussendienst"
-  | "nicht_moeglich"
+  | "warten_kunde"
   | "abholbereit"
   | "abgeschlossen";
 
@@ -27,11 +28,12 @@ type StatusConfig = {
 // ─── Status Konfiguration ─────────────────────────────────────────────────────
 
 export const STATUS_CONFIG: Record<Status, StatusConfig> = {
-  in_reparatur:       { label: "In Reparatur",           color: "bg-blue-500",   pillBg: "bg-blue-50",   pillText: "text-blue-700",   pillBorder: "border-blue-200"   },
+  angenommen:         { label: "Angenommen",              color: "bg-gray-400",   pillBg: "bg-gray-50",   pillText: "text-gray-700",   pillBorder: "border-gray-200"   },
+  in_diagnose:        { label: "In Diagnose",             color: "bg-sky-500",    pillBg: "bg-sky-50",    pillText: "text-sky-700",    pillBorder: "border-sky-200"    },
+  in_reparatur:       { label: "In Reparatur",            color: "bg-blue-500",   pillBg: "bg-blue-50",   pillText: "text-blue-700",   pillBorder: "border-blue-200"   },
   warten_ersatzteile: { label: "Warten auf Ersatzteile",  color: "bg-amber-500",  pillBg: "bg-amber-50",  pillText: "text-amber-700",  pillBorder: "border-amber-200"  },
-  warten_kunde:       { label: "Warten auf Kunden",       color: "bg-orange-500", pillBg: "bg-orange-50", pillText: "text-orange-700", pillBorder: "border-orange-200" },
   aussendienst:       { label: "Außendienst",             color: "bg-violet-500", pillBg: "bg-violet-50", pillText: "text-violet-700", pillBorder: "border-violet-200" },
-  nicht_moeglich:     { label: "Reparatur nicht möglich", color: "bg-red-500",    pillBg: "bg-red-50",    pillText: "text-red-700",    pillBorder: "border-red-200"    },
+  warten_kunde:       { label: "Warten auf Kunden",       color: "bg-orange-500", pillBg: "bg-orange-50", pillText: "text-orange-700", pillBorder: "border-orange-200" },
   abholbereit:        { label: "Abholbereit",             color: "bg-green-500",  pillBg: "bg-green-50",  pillText: "text-green-700",  pillBorder: "border-green-200"  },
   abgeschlossen:      { label: "Abgeschlossen",           color: "bg-gray-400",   pillBg: "bg-gray-100",  pillText: "text-gray-600",   pillBorder: "border-gray-200"   },
 };

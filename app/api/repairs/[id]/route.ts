@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { createRouteClient } from "@/lib/supabase/server";
 
 const STATUS_LABELS: Record<string, string> = {
-  angenommen:    "Angenommen",
-  in_arbeit:     "In Arbeit",
-  in_reparatur:  "In Reparatur",
-  fertig:        "Abholbereit",
-  abholbereit:   "Abholbereit",
-  abgeholt:      "Abgeholt",
-  abgeschlossen: "Abgeschlossen",
-  storniert:     "Storniert",
+  angenommen:         "Angenommen",
+  in_diagnose:        "In Diagnose",
+  in_reparatur:       "In Reparatur",
+  warten_ersatzteile: "Warten auf Ersatzteile",
+  aussendienst:       "Außendienst",
+  warten_kunde:       "Warten auf Kunden",
+  abholbereit:        "Abholbereit",
+  abgeschlossen:      "Abgeschlossen",
 };
 
 function statusLabel(status: string | null | undefined): string {

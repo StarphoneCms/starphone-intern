@@ -6,17 +6,18 @@ import { createServerComponentClient } from "@/lib/supabase/server";
 import DashboardClient, { type DashboardRepair } from "./DashboardClient";
 import StatistikClient from "./StatistikClient";
 
-// Neue 7 DB-Werte → Board-Labels mappen
+// 8 DB-Werte → Board-Labels mappen
 function normalizeStatus(status: string | null): DashboardRepair["boardStatus"] {
   switch ((status ?? "").trim().toLowerCase()) {
+    case "angenommen":         return "Angenommen";
+    case "in_diagnose":        return "In Diagnose";
     case "in_reparatur":       return "In Reparatur";
     case "warten_ersatzteile": return "Warten Ersatzteile";
     case "warten_kunde":       return "Warten Kunde";
     case "aussendienst":       return "Außendienst";
-    case "nicht_moeglich":     return "Nicht möglich";
     case "abholbereit":        return "Abholbereit";
     case "abgeschlossen":      return "Abgeschlossen";
-    default:                   return "In Reparatur";
+    default:                   return "Angenommen";
   }
 }
 
@@ -62,13 +63,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // ── Statistik Daten ──────────────────────────────────────────────────────────
   const STATUS_CFG = [
+    { name: "Angenommen",         color: "#9CA3AF" },
+    { name: "In Diagnose",        color: "#38BDF8" },
     { name: "In Reparatur",       color: "#6366F1" },
     { name: "Warten Ersatzteile", color: "#F59E0B" },
     { name: "Warten Kunde",       color: "#F97316" },
     { name: "Außendienst",        color: "#8B5CF6" },
-    { name: "Nicht möglich",      color: "#EF4444" },
     { name: "Abholbereit",        color: "#10B981" },
-    { name: "Abgeschlossen",      color: "#9CA3AF" },
+    { name: "Abgeschlossen",      color: "#6B7280" },
   ];
   const statusData = STATUS_CFG.map((s) => ({
     ...s, count: items.filter((r) => r.boardStatus === s.name).length,

@@ -15,8 +15,8 @@ import { createClient } from "@/lib/supabase/browser";
 // ─── Status ───────────────────────────────────────────────────────────────────
 
 export type DashboardStatus =
-  | "In Reparatur" | "Warten Ersatzteile" | "Warten Kunde"
-  | "Außendienst" | "Nicht möglich" | "Abholbereit" | "Abgeschlossen";
+  | "Angenommen" | "In Diagnose" | "In Reparatur" | "Warten Ersatzteile"
+  | "Warten Kunde" | "Außendienst" | "Abholbereit" | "Abgeschlossen";
 
 export type DashboardRepair = {
   id: string; auftragsnummer: string | null; status: string | null;
@@ -27,52 +27,56 @@ export type DashboardRepair = {
 };
 
 export const STATUS_COLUMNS: DashboardStatus[] = [
-  "In Reparatur", "Warten Ersatzteile", "Warten Kunde",
-  "Außendienst", "Nicht möglich", "Abholbereit", "Abgeschlossen",
+  "Angenommen", "In Diagnose", "In Reparatur", "Warten Ersatzteile",
+  "Warten Kunde", "Außendienst", "Abholbereit", "Abgeschlossen",
 ];
 
 const STATUS_VALUE_MAP: Record<DashboardStatus, string> = {
+  "Angenommen":         "angenommen",
+  "In Diagnose":        "in_diagnose",
   "In Reparatur":       "in_reparatur",
   "Warten Ersatzteile": "warten_ersatzteile",
   "Warten Kunde":       "warten_kunde",
   "Außendienst":        "aussendienst",
-  "Nicht möglich":      "nicht_moeglich",
   "Abholbereit":        "abholbereit",
   "Abgeschlossen":      "abgeschlossen",
 };
 
 const STATUS_STRIPE: Record<DashboardStatus, string> = {
+  "Angenommen":         "#9CA3AF",
+  "In Diagnose":        "#38BDF8",
   "In Reparatur":       "#6366F1",
   "Warten Ersatzteile": "#F59E0B",
   "Warten Kunde":       "#F97316",
   "Außendienst":        "#8B5CF6",
-  "Nicht möglich":      "#EF4444",
   "Abholbereit":        "#10B981",
-  "Abgeschlossen":      "#9CA3AF",
+  "Abgeschlossen":      "#6B7280",
 };
 
 const STATUS_CONFIG: Record<DashboardStatus, {
   dot: string; pill: string; colBg: string; colBorder: string; colDrop: string;
 }> = {
+  "Angenommen":         { dot: "bg-gray-400",    pill: "bg-gray-50    text-gray-800    border-gray-200",    colBg: "bg-gray-50",       colBorder: "border-gray-200",    colDrop: "ring-gray-300"    },
+  "In Diagnose":        { dot: "bg-sky-500",     pill: "bg-sky-50     text-sky-800     border-sky-200",     colBg: "bg-sky-50/50",     colBorder: "border-sky-200",     colDrop: "ring-sky-300"     },
   "In Reparatur":       { dot: "bg-indigo-500",  pill: "bg-indigo-50  text-indigo-800  border-indigo-200",  colBg: "bg-indigo-50/50",  colBorder: "border-indigo-200",  colDrop: "ring-indigo-300"  },
   "Warten Ersatzteile": { dot: "bg-amber-500",   pill: "bg-amber-50   text-amber-800   border-amber-200",   colBg: "bg-amber-50/50",   colBorder: "border-amber-200",   colDrop: "ring-amber-300"   },
   "Warten Kunde":       { dot: "bg-orange-500",  pill: "bg-orange-50  text-orange-800  border-orange-200",  colBg: "bg-orange-50/50",  colBorder: "border-orange-200",  colDrop: "ring-orange-300"  },
   "Außendienst":        { dot: "bg-violet-500",  pill: "bg-violet-50  text-violet-800  border-violet-200",  colBg: "bg-violet-50/50",  colBorder: "border-violet-200",  colDrop: "ring-violet-300"  },
-  "Nicht möglich":      { dot: "bg-red-500",     pill: "bg-red-50     text-red-800     border-red-200",     colBg: "bg-red-50/50",     colBorder: "border-red-200",     colDrop: "ring-red-300"     },
   "Abholbereit":        { dot: "bg-emerald-500", pill: "bg-emerald-50 text-emerald-800 border-emerald-200", colBg: "bg-emerald-50/50", colBorder: "border-emerald-200", colDrop: "ring-emerald-300" },
   "Abgeschlossen":      { dot: "bg-gray-400",    pill: "bg-gray-100   text-gray-600    border-gray-200",    colBg: "bg-gray-50",       colBorder: "border-gray-200",    colDrop: "ring-gray-300"    },
 };
 
 function normalizeStatus(status: string | null): DashboardStatus {
   switch ((status ?? "").trim().toLowerCase()) {
+    case "angenommen":         return "Angenommen";
+    case "in_diagnose":        return "In Diagnose";
     case "in_reparatur":       return "In Reparatur";
     case "warten_ersatzteile": return "Warten Ersatzteile";
     case "warten_kunde":       return "Warten Kunde";
     case "aussendienst":       return "Außendienst";
-    case "nicht_moeglich":     return "Nicht möglich";
     case "abholbereit":        return "Abholbereit";
     case "abgeschlossen":      return "Abgeschlossen";
-    default:                   return "In Reparatur";
+    default:                   return "Angenommen";
   }
 }
 

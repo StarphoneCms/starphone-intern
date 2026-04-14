@@ -28,7 +28,7 @@ export type RepairListItem = {
   } | null;
 };
 
-const INACTIVE = ["abgeschlossen", "storniert", "abgeholt"];
+const INACTIVE = ["abgeschlossen"];
 
 function isToday(iso: string) {
   const d = new Date(iso);
