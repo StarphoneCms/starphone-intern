@@ -16,8 +16,7 @@ const ADMIN_EMAIL = 'star@starphone.de'
 const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const STAFF_IDS = [1, 2, 3, 5]
 
-type Tab = 'week' | 'day' | 'vacation' | 'stats'
-type VacSub = 'calendar' | 'list'
+type Tab = 'week' | 'day' | 'vacation' | 'requests' | 'stats'
 
 function getWeekDates(weekOffset: number): Date[] {
   const now = new Date()
@@ -53,7 +52,6 @@ export default function StaffPlanningPage() {
   const [templates, setTemplates] = useState<ShiftTemplate[]>([])
   const [vacations, setVacations] = useState<VacationRequest[]>([])
   const [tab, setTab] = useState<Tab>('week')
-  const [vacSub, setVacSub] = useState<VacSub>('calendar')
   const [modalData, setModalData] = useState<{ date: string; staff_id: number } | null>(null)
   const [editShift, setEditShift] = useState<Shift | null>(null)
   const [loading, setLoading] = useState(true)
@@ -157,7 +155,8 @@ export default function StaffPlanningPage() {
   const TABS: { key: Tab; label: string }[] = [
     { key: 'week', label: 'Wochenplan' },
     { key: 'day', label: 'Tagesplan' },
-    { key: 'vacation', label: 'Urlaub' },
+    { key: 'vacation', label: 'Urlaubsplan' },
+    { key: 'requests', label: 'Anträge' },
     { key: 'stats', label: 'Auswertung' },
   ]
 
@@ -348,29 +347,14 @@ export default function StaffPlanningPage() {
         {/* ── Tagesplan ── */}
         {tab === 'day' && <DayPlanPanel isAdmin={isAdmin!} />}
 
-        {/* ── Urlaub ── */}
+        {/* ── Urlaubsplan ── */}
         {tab === 'vacation' && (
-          <>
-            <div className="flex gap-1 mb-4">
-              <button onClick={() => setVacSub('calendar')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  vacSub === 'calendar' ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                }`}>
-                Kalender
-              </button>
-              <button onClick={() => setVacSub('list')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  vacSub === 'list' ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                }`}>
-                Liste
-              </button>
-            </div>
-            {vacSub === 'calendar' ? (
-              <VacationCalendar vacations={vacations} onUpdate={load} isAdmin={isAdmin!} />
-            ) : (
-              <VacationPanel vacations={vacations} onUpdate={load} isAdmin={isAdmin!} />
-            )}
-          </>
+          <VacationCalendar vacations={vacations} onUpdate={load} isAdmin={isAdmin!} />
+        )}
+
+        {/* ── Anträge ── */}
+        {tab === 'requests' && (
+          <VacationPanel vacations={vacations} onUpdate={load} isAdmin={isAdmin!} />
         )}
 
         {/* ── Auswertung ── */}
