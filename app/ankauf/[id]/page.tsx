@@ -6,12 +6,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/browser";
 
 type A = {
-  id: string; ankauf_nummer: string; kunden_name: string; kunden_telefon?: string;
+  id: string; ankauf_nummer: string; kunden_name: string; kunden_vorname?: string;
+  kunden_nachname?: string; kunden_telefon?: string;
   kunden_email?: string; kunden_strasse?: string; kunden_plz?: string; kunden_ort?: string;
   ausweis_nummer?: string; ausweis_vorne?: string; ausweis_rueckseite?: string;
-  geraetetyp: string; hersteller: string; modell: string; speicher?: string; farbe?: string;
+  geraetetyp?: string; hersteller?: string; modell?: string; speicher?: string; farbe?: string;
   imei?: string; akku_prozent?: number; zustand?: string; beschreibung?: string; notiz?: string;
-  ankauf_preis: number; in_inventar: boolean; unterschrift?: string; status: string;
+  ankauf_preis: number; in_inventar: boolean; unterschrift?: string;
+  unterschrift_mitarbeiter?: string; status: string;
   kaufvertrag_akzeptiert?: boolean; kaufvertrag_pdf_url?: string; belegnummer_kasse?: string;
   customer_id?: string; created_at: string;
 };
@@ -81,8 +83,8 @@ export default function AnkaufDetailPage() {
       const a = data as A | null; setItem(a);
       if (a) {
         setEName(a.kunden_name); setETelefon(a.kunden_telefon ?? "");
-        setEAusweis(a.ausweis_nummer ?? ""); setEHersteller(a.hersteller);
-        setEModell(a.modell); setETyp(a.geraetetyp);
+        setEAusweis(a.ausweis_nummer ?? ""); setEHersteller(a.hersteller ?? "");
+        setEModell(a.modell ?? ""); setETyp(a.geraetetyp ?? "");
         setEPreis(String(a.ankauf_preis)); setEBeleg(a.belegnummer_kasse ?? "");
         setEmail(a.kunden_email ?? ""); setStrasse(a.kunden_strasse ?? "");
         setPlz(a.kunden_plz ?? ""); setOrt(a.kunden_ort ?? "");
@@ -124,8 +126,8 @@ export default function AnkaufDetailPage() {
   async function saveAll() {
     if (!item) return; setSaving(true); setSaved("");
     const sig = canvasRef.current && !item.unterschrift ? canvasRef.current.toDataURL("image/png") : item.unterschrift;
-    const complete = !!(imei.trim() && sig && cc && zustand);
-    const ns = item.status === "abgeschlossen" ? "abgeschlossen" : complete ? "vollstaendig" : "offen";
+    const deviceComplete = !!(eHersteller.trim() && eModell.trim() && imei.trim() && ePreis && parseFloat(ePreis) > 0 && zustand);
+    const ns = item.status === "abgeschlossen" ? "abgeschlossen" : deviceComplete ? "vollstaendig" : "offen";
     await supabase.from("ankauf").update({
       kunden_name: eName.trim() || item.kunden_name, kunden_telefon: eTelefon || null,
       ausweis_nummer: eAusweis || null, hersteller: eHersteller.trim() || item.hersteller,
@@ -224,7 +226,7 @@ export default function AnkaufDetailPage() {
           </div>
         </div>
 
-        {isOffen && <div className="mb-5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-[12px] text-amber-800"><span className="font-semibold">⚠ Nicht vollständig</span> — Details noch ausfüllen (IMEI, Zustand, Adresse).</div>}
+        {isOffen && <div className="mb-5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-[12px] text-amber-800"><span className="font-semibold">⚠ Gerätedaten fehlen noch</span> — Hersteller, Modell, IMEI, Preis oder Zustand ergänzen.</div>}
         {saved && <div className="mb-4 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-[12px] text-emerald-700">{saved}</div>}
 
         {/* Preis & Kasse */}

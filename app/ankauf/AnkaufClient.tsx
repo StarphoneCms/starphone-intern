@@ -129,7 +129,7 @@ export default function AnkaufClient() {
                     <tr key={a.id} onClick={() => router.push(`/ankauf/${a.id}`)}
                       className={`hover:bg-gray-50 transition-colors cursor-pointer ${a.status === "offen" ? "border-l-2 border-l-amber-400" : ""}`}>
                       <td className="px-4 py-3 font-mono text-gray-600">{a.ankauf_nummer}</td>
-                      <td className="px-4 py-3"><div className="font-medium text-gray-900">{a.hersteller} {a.modell}</div><div className="text-[11px] text-gray-400">{a.geraetetyp}</div></td>
+                      <td className="px-4 py-3"><div className="font-medium text-gray-900">{a.hersteller && a.modell ? `${a.hersteller} ${a.modell}` : <span className="text-gray-400 italic">Gerät fehlt</span>}</div>{a.geraetetyp && <div className="text-[11px] text-gray-400">{a.geraetetyp}</div>}</td>
                       <td className="px-4 py-3 text-gray-700">{a.kunden_name}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">{Number(a.ankauf_preis).toFixed(2)} €</td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-[11px]">{a.belegnummer_kasse ?? "—"}</td>
