@@ -89,7 +89,7 @@ export const DOC_TYPE_CONFIG: Record<
     accent: "bg-blue-600",
     accentText: "text-white",
     prefix: "AG",
-    convertTo: ["kostenvoranschlag", "rechnung", "lieferschein"],
+    convertTo: ["rechnung", "lieferschein"],
   },
   kostenvoranschlag: {
     label: "Kostenvoranschlag",

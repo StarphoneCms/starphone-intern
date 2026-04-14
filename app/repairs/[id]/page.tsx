@@ -149,6 +149,14 @@ export default async function RepairDetailPage({
             />
             <EditRepairPanel repair={repair} />
             <PrintButtons repairId={id} />
+            <Link href={`/documents/new?type=angebot&repair_id=${repair.id}`}
+              className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+              Als Angebot
+            </Link>
+            <Link href={`/documents/new?type=rechnung&repair_id=${repair.id}`}
+              className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+              Als Rechnung
+            </Link>
           </div>
         </div>
 

@@ -9,14 +9,12 @@ import { useRealtime } from "@/hooks/useRealtime";
 const FILTER_TABS = [
   { key: "alle",              label: "Alle"              },
   { key: "angebot",           label: "Angebote"          },
-  { key: "kostenvoranschlag", label: "Kostenvoranschläge" },
   { key: "lieferschein",      label: "Lieferscheine"     },
   { key: "rechnung",          label: "Rechnungen"        },
 ];
 
 const TAB_COLORS: Record<string, string> = {
   angebot:           "bg-blue-600 text-white",
-  kostenvoranschlag: "bg-violet-600 text-white",
   lieferschein:      "bg-teal-600 text-white",
   rechnung:          "bg-emerald-600 text-white",
 };

@@ -62,11 +62,19 @@ function calcItem(item: Pick<LineItem, "quantity" | "unit_price" | "discount" | 
   return { total_brutto, total_netto, tax_amount };
 }
 
-export default function NewDocumentForm() {
+interface FormProps {
+  prefillType?: string;
+  repairId?: string;
+}
+
+export default function NewDocumentForm({ prefillType, repairId }: FormProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [docType, setDocType] = useState<DocType | "">("");
+  const [docType, setDocType] = useState<DocType | "">(
+    prefillType === "angebot" || prefillType === "rechnung" || prefillType === "lieferschein"
+      ? prefillType : ""
+  );
   const [customerMode, setCustomerMode] = useState<"search" | "manual">("search");
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState<CustomerResult[]>([]);
@@ -130,6 +138,62 @@ export default function NewDocumentForm() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // ─── Prefill from repair ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!repairId) return;
+    (async () => {
+      const { data: repair } = await supabase
+        .from("repairs")
+        .select("*, customers(id, first_name, last_name, phone, email)")
+        .eq("id", repairId)
+        .single();
+      if (!repair) return;
+
+      // Customer
+      const cName = repair.customers
+        ? `${repair.customers.first_name} ${repair.customers.last_name}`
+        : repair.kunden_name || "";
+      const cEmail = repair.customers?.email || repair.kunden_email || "";
+      const cPhone = repair.customers?.phone || repair.kunden_telefon || "";
+      const cAddress = repair.kunden_adresse || "";
+
+      if (repair.customers?.id) {
+        setSelectedCustomer({
+          id: repair.customers.id,
+          first_name: repair.customers.first_name,
+          last_name: repair.customers.last_name,
+          phone: cPhone, email: cEmail, address: cAddress,
+        });
+      } else {
+        setCustomerMode("manual");
+        setManualCustomer(prev => ({ ...prev, name: cName, email: cEmail, phone: cPhone, address: cAddress }));
+      }
+
+      // Items
+      const newItems: LineItem[] = [];
+      const desc = [repair.hersteller, repair.modell, repair.reparatur_problem].filter(Boolean).join(" – ");
+      const price = Number(repair.reparatur_preis) || 0;
+      const base = { position: 1, description: desc, details: "", quantity: 1, unit: "Stk.", unit_price: price, discount: 0, discount_type: "percent" as const, tax_rate: 19 };
+      newItems.push({ ...base, ...calcItem(base) });
+
+      // Zusatzverkauf
+      if (repair.zusatzverkauf_items) {
+        try {
+          const extras: { name: string; preis: number }[] =
+            typeof repair.zusatzverkauf_items === "string"
+              ? JSON.parse(repair.zusatzverkauf_items)
+              : repair.zusatzverkauf_items;
+          extras.forEach((ext, i) => {
+            const eb = { position: newItems.length + 1, description: ext.name, details: "", quantity: 1, unit: "Stk.", unit_price: Number(ext.preis) || 0, discount: 0, discount_type: "percent" as const, tax_rate: 19 };
+            newItems.push({ ...eb, ...calcItem(eb) });
+          });
+        } catch {}
+      }
+      setItems(newItems);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repairId]);
+
   function addEmptyItem() {
     const base = { position: items.length + 1, description: "", details: "", quantity: 1, unit: "Stk.", unit_price: 0, discount: 0, discount_type: "percent" as const, tax_rate: 19 };
     setItems((prev) => [...prev, { ...base, ...calcItem(base) }]);
@@ -192,6 +256,9 @@ export default function NewDocumentForm() {
       const res = await fetch("/api/documents/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const result = await res.json();
       if (!result.ok) { setError(result.error?.message ?? "Fehler"); setSaving(null); return; }
+      if (repairId) {
+        await supabase.from("repairs").update({ status: "abgeschlossen" }).eq("id", repairId);
+      }
       router.push(mode === "preview" ? `/documents/${result.id}/preview` : `/documents/${result.id}`);
     } catch { setError("Netzwerkfehler"); setSaving(null); }
   }
@@ -217,7 +284,7 @@ export default function NewDocumentForm() {
         <section className="mb-6">
           <h2 className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Dokumenttyp</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {(Object.entries(DOC_TYPE_CONFIG) as [DocType, typeof DOC_TYPE_CONFIG[DocType]][]).map(([type, cfg]) => (
+            {(Object.entries(DOC_TYPE_CONFIG) as [DocType, typeof DOC_TYPE_CONFIG[DocType]][]).filter(([type]) => type !== "kostenvoranschlag").map(([type, cfg]) => (
               <button key={type} type="button" onClick={() => setDocType(type)}
                 className={["rounded-xl border p-4 text-left transition-all",
                   docType === type ? `${cfg.bg} ${cfg.border} ring-1 ring-current` : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"].join(" ")}>
