@@ -58,8 +58,8 @@ export default function NewAnkaufForm() {
   const [ort, setOrt] = useState("");
   const [telefon, setTelefon] = useState("");
   const [ausweis, setAusweis] = useState("");
-  const [ausweisUrl, setAusweisUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [ausweisFile, setAusweisFile] = useState<File | null>(null);
+  const [ausweisPreview, setAusweisPreview] = useState<string | null>(null);
 
   // Optional
   const [email, setEmail] = useState("");
@@ -95,12 +95,16 @@ export default function NewAnkaufForm() {
     setCSearch(""); setShowDD(false);
   }
 
-  async function uploadPhoto(file: File) {
-    setUploading(true);
-    const path = `${Date.now()}-ausweis.${file.name.split(".").pop() ?? "jpg"}`;
-    const { error } = await supabase.storage.from("ankauf-docs").upload(path, file);
-    if (!error) { const { data } = supabase.storage.from("ankauf-docs").getPublicUrl(path); setAusweisUrl(data.publicUrl); }
-    setUploading(false);
+  function selectPhoto(file: File) {
+    setAusweisFile(file);
+    setAusweisPreview(URL.createObjectURL(file));
+    setErrors(p => ({ ...p, foto: false }));
+  }
+
+  function clearPhoto() {
+    if (ausweisPreview) URL.revokeObjectURL(ausweisPreview);
+    setAusweisFile(null);
+    setAusweisPreview(null);
   }
 
   async function handleSubmit() {
@@ -112,13 +116,21 @@ export default function NewAnkaufForm() {
     if (!ort.trim()) errs.ort = true;
     if (!telefon.trim()) errs.telefon = true;
     if (!ausweis.trim()) errs.ausweis = true;
-    if (!ausweisUrl) errs.foto = true;
+    if (!ausweisFile) errs.foto = true;
     if (sigKunde.isEmpty()) errs.sig = true;
 
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setSaving(true);
+
+    // Upload ausweis photo
+    let ausweisUrl: string | null = null;
+    if (ausweisFile) {
+      const path = `${Date.now()}-ausweis.${ausweisFile.name.split(".").pop() ?? "jpg"}`;
+      const { error } = await supabase.storage.from("ankauf-docs").upload(path, ausweisFile);
+      if (!error) { const { data } = supabase.storage.from("ankauf-docs").getPublicUrl(path); ausweisUrl = data.publicUrl; }
+    }
     const year = new Date().getFullYear();
     let nr: string;
     try {
@@ -152,7 +164,7 @@ export default function NewAnkaufForm() {
 
   function reset() {
     setVorname(""); setNachname(""); setStrasse(""); setPlz(""); setOrt("");
-    setTelefon(""); setEmail(""); setAusweis(""); setAusweisUrl(null); setCustomerId(null);
+    setTelefon(""); setEmail(""); setAusweis(""); clearPhoto(); setCustomerId(null);
     setTyp(""); setHersteller(""); setModell(""); setZustand(""); setImeiVal("");
     setFarbe(""); setNotiz(""); setPreis(""); setBeleg("");
     setErrors({}); setSuccess(null);
@@ -219,21 +231,21 @@ export default function NewAnkaufForm() {
               <div><label className={lbl}>Ausweisnummer *</label><input type="text" value={ausweis} onChange={e => { setAusweis(e.target.value); setErrors(p => ({ ...p, ausweis: false })); }} className={`${inp} ${errors.ausweis ? errCls : ""}`} /></div>
               <div>
                 <label className={lbl}>Ausweis Foto *</label>
-                {ausweisUrl ? (
+                {ausweisPreview ? (
                   <div className="relative inline-block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ausweisUrl} alt="Ausweis" className="h-20 rounded-lg border border-gray-200" />
-                    <button onClick={() => setAusweisUrl(null)} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-black text-white text-[10px] flex items-center justify-center">✕</button>
+                    <img src={ausweisPreview} alt="Ausweis" className="h-20 rounded-lg border border-gray-200" />
+                    <button onClick={clearPhoto} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-black text-white text-[10px] flex items-center justify-center">✕</button>
                   </div>
                 ) : (
                   <div className={`flex gap-2 ${errors.foto ? "p-1 rounded-lg border border-red-300 bg-red-50" : ""}`}>
                     <label className="h-9 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center cursor-pointer">
-                      {uploading ? "Laden..." : "Foto aufnehmen"}
-                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { uploadPhoto(f); setErrors(p => ({ ...p, foto: false })); } }} />
+                      Foto aufnehmen
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) selectPhoto(f); }} />
                     </label>
                     <label className="h-9 px-4 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center cursor-pointer">
                       Hochladen
-                      <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { uploadPhoto(f); setErrors(p => ({ ...p, foto: false })); } }} />
+                      <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) selectPhoto(f); }} />
                     </label>
                   </div>
                 )}
