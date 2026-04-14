@@ -15,16 +15,16 @@ const STAFF_BUTTONS = [
 ];
 
 const QUICK_NOTES = [
-  { label: "Kunde angerufen",     text: "Kunde telefonisch kontaktiert." },
-  { label: "Keine Antwort",       text: "Kunde nicht erreichbar, Nachricht hinterlassen." },
-  { label: "Ersatzteil bestellt", text: "Ersatzteil bestellt, Lieferung in 1–3 Werktagen." },
-  { label: "Ersatzteil da",       text: "Ersatzteil eingetroffen, Reparatur kann beginnen." },
-  { label: "Reparatur fertig",    text: "Reparatur abgeschlossen, Gerät abholbereit." },
-  { label: "Gerät abgeholt",      text: "Gerät vom Kunden abgeholt." },
-  { label: "Gerät getestet",      text: "Gerät getestet, alle Funktionen einwandfrei." },
-  { label: "Wasserschaden",       text: "Wasserschaden festgestellt, Reinigung durchgeführt." },
-  { label: "Platine defekt",      text: "Platine defekt, Reparatur nicht möglich." },
-  { label: "Kostenvoranschlag",   text: "Kostenvoranschlag dem Kunden mitgeteilt, warte auf Freigabe." },
+  { label: "Kunde angerufen",     text: "Kunde angerufen." },
+  { label: "Keine Antwort",       text: "Keine Antwort." },
+  { label: "Ersatzteil bestellt", text: "Ersatzteil bestellt." },
+  { label: "Ersatzteil da",       text: "Ersatzteil da." },
+  { label: "Reparatur fertig",    text: "Reparatur fertig." },
+  { label: "Gerät abgeholt",      text: "Gerät abgeholt." },
+  { label: "Gerät getestet",      text: "Gerät getestet." },
+  { label: "Wasserschaden",       text: "Wasserschaden festgestellt." },
+  { label: "Platine defekt",      text: "Platine defekt." },
+  { label: "Angebot erstellt",    text: "Angebot erstellt." },
 ];
 
 type Note = {
