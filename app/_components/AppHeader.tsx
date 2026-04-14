@@ -203,11 +203,11 @@ export default function AppHeader() {
       {drawerOpen && (
         <div className="fixed inset-0 z-[60] md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
-          <aside className="absolute top-0 left-0 bottom-0 w-72 bg-gray-950 shadow-2xl flex flex-col animate-[slideIn_0.2s_ease-out]">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
-              <img src="/icons/logo.png" alt="Starphone" style={{ height: 24, width: "auto", filter: "invert(1)" }} />
+          <aside className="absolute top-0 left-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col animate-[slideIn_0.2s_ease-out]">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
+              <img src="/icons/logo.png" alt="Starphone" style={{ height: 24, width: "auto" }} />
               <button onClick={() => setDrawerOpen(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-800 transition-colors text-gray-400">
+                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-black">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   <line x1="13" y1="3" x2="3" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -219,20 +219,20 @@ export default function AppHeader() {
                 const active = isActive(item.href);
                 return (
                   <Link key={item.href} href={item.href} onClick={() => setDrawerOpen(false)}
-                    className={["flex items-center gap-3 px-4 py-3 text-[13px] font-medium transition-colors",
-                      active ? "text-white bg-gray-800" : "text-gray-300 hover:bg-gray-800 hover:text-white"].join(" ")}>
-                    <span className={active ? "text-white" : "text-gray-500"}>{item.icon(active)}</span>
+                    className={["flex items-center gap-3 px-4 py-3 text-[13px] transition-colors",
+                      active ? "text-black bg-gray-100 font-semibold" : "text-gray-700 hover:bg-gray-100 hover:text-black font-medium"].join(" ")}>
+                    <span className={active ? "text-black" : "text-gray-400"}>{item.icon(active)}</span>
                     {item.label}
-                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />}
+                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-black" />}
                   </Link>
                 );
               })}
             </nav>
-            <div className="border-t border-gray-800 px-4 py-3">
+            <div className="border-t border-gray-100 px-4 py-3">
               <div className="text-[11px] text-gray-500 mb-1">Angemeldet als</div>
-              <div className="text-[12px] font-medium text-gray-200 truncate mb-2">{userEmail ?? "—"}</div>
+              <div className="text-[12px] font-medium text-gray-900 truncate mb-2">{userEmail ?? "—"}</div>
               <button onClick={() => { setDrawerOpen(false); handleLogout(); }}
-                className="text-[12px] text-red-400 hover:text-red-300 transition-colors">
+                className="text-[12px] text-red-600 hover:text-red-700 transition-colors">
                 Abmelden
               </button>
             </div>
