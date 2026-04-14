@@ -166,10 +166,7 @@ export default function AppHeader() {
             <line x1="3" y1="13" x2="15" y2="13" stroke="white" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="text-[14px] font-semibold text-gray-900">
-          {NAV_ITEMS.find(n => isActive(n.href))?.label ?? "Starphone"}
-        </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           <Link href="/repairs/new"
             className="h-8 w-8 rounded-full bg-black flex items-center justify-center text-white hover:bg-gray-800 transition-colors">
             <svg width="12" height="12" viewBox="0 0 10 10" fill="none">
