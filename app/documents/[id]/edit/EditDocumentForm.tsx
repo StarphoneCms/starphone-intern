@@ -106,7 +106,8 @@ export default function EditDocumentForm({
   const [showPriceDropdown, setShowPriceDropdown] = useState(false);
   const priceRef = useRef<HTMLDivElement>(null);
 
-  const [templates, setTemplates] = useState<{ id: string; name: string; header_text: string | null; footer_text: string | null }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; name: string; header_text: string | null; footer_text: string | null; is_default?: boolean }[]>([]);
+  const [selectedTplId, setSelectedTplId] = useState("");
   const [headerNote, setHeaderNote] = useState((doc.header_note as string) ?? "");
   const [footerNote, setFooterNote] = useState((doc.footer_note as string) ?? "");
   const [docDate,    setDocDate]    = useState((doc.doc_date    as string) ?? new Date().toISOString().split("T")[0]);
@@ -177,8 +178,9 @@ export default function EditDocumentForm({
   useEffect(() => {
     supabase
       .from("document_templates")
-      .select("id, name, header_text, footer_text")
+      .select("id, name, header_text, footer_text, is_default")
       .or(`document_type.eq.${docType},document_type.is.null`)
+      .order("is_default", { ascending: false })
       .order("name")
       .then(({ data }) => setTemplates(data ?? []));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -528,15 +530,16 @@ export default function EditDocumentForm({
               <div className="sm:col-span-2">
                 <label className={labelCls}>Textvorlage</label>
                 <select
+                  value={selectedTplId}
                   onChange={(e) => {
+                    setSelectedTplId(e.target.value);
                     const tpl = templates.find((t) => t.id === e.target.value);
                     if (tpl) { setHeaderNote(tpl.header_text ?? ""); setFooterNote(tpl.footer_text ?? ""); }
                   }}
-                  defaultValue=""
                   className={inputCls}
                 >
-                  <option value="" disabled>Vorlage wählen …</option>
-                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  <option value="">Vorlage wählen …</option>
+                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.is_default ? " (Standard)" : ""}</option>)}
                 </select>
               </div>
             )}
