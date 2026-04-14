@@ -26,6 +26,11 @@ body {
 }
 /* Am Ende von globals.css hinzufügen: */
 
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
 @media print {
   header,
   nav,

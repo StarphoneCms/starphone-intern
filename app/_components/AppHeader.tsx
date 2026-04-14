@@ -72,6 +72,7 @@ export default function AppHeader() {
   const supabase  = createClient();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [drawerOpen,   setDrawerOpen]   = useState(false);
   const [userEmail,    setUserEmail]    = useState<string | null>(null);
 
   useEffect(() => {
@@ -157,9 +158,14 @@ export default function AppHeader() {
       {/* ── Mobile Top Bar (< md, nicht auf Login) ── */}
       {pathname !== "/login" && (
       <header className="fixed top-0 inset-x-0 z-50 h-14 bg-white border-b border-gray-100 flex md:hidden items-center px-4 justify-between">
-        <Link href="/dashboard">
-          <img src="/icons/logo.png" alt="Starphone" style={{ height: 24, width: "auto" }} />
-        </Link>
+        <button onClick={() => setDrawerOpen(true)}
+          className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <line x1="2" y1="4.5" x2="16" y2="4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="2" y1="9" x2="16" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1="2" y1="13.5" x2="16" y2="13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
         <span className="text-[14px] font-semibold text-gray-900">
           {NAV_ITEMS.find(n => isActive(n.href))?.label ?? "Starphone"}
         </span>
@@ -194,6 +200,47 @@ export default function AppHeader() {
           </div>
         </div>
       </header>
+      )}
+
+      {/* ── Mobile Drawer ── */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-[60] md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <aside className="absolute top-0 left-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col animate-[slideIn_0.2s_ease-out]">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+              <img src="/icons/logo.png" alt="Starphone" style={{ height: 24, width: "auto" }} />
+              <button onClick={() => setDrawerOpen(false)}
+                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <line x1="3" y1="3" x2="13" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <line x1="13" y1="3" x2="3" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex-1 py-2 overflow-y-auto">
+              {NAV_ITEMS.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link key={item.href} href={item.href} onClick={() => setDrawerOpen(false)}
+                    className={["flex items-center gap-3 px-4 py-3 text-[13px] font-medium transition-colors",
+                      active ? "text-black bg-gray-50" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"].join(" ")}>
+                    <span className={active ? "text-black" : "text-gray-400"}>{item.icon(active)}</span>
+                    {item.label}
+                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-black" />}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="border-t border-gray-100 px-4 py-3">
+              <div className="text-[11px] text-gray-400 mb-1">Angemeldet als</div>
+              <div className="text-[12px] font-medium text-gray-900 truncate mb-2">{userEmail ?? "—"}</div>
+              <button onClick={() => { setDrawerOpen(false); handleLogout(); }}
+                className="text-[12px] text-red-600 hover:text-red-700 transition-colors">
+                Abmelden
+              </button>
+            </div>
+          </aside>
+        </div>
       )}
 
       {/* ── Einziger Spacer für fixed Header ── */}
