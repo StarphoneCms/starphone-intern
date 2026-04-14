@@ -109,8 +109,8 @@ export default function NewAnkaufForm() {
       ankauf_nummer: nr, kunden_name: name.trim(), kunden_telefon: telefon || null,
       ausweis_nummer: ausweis || null, customer_id: selC?.id ?? null,
       ausweis_vorne: ausweisUrl, geraetetyp: typ, hersteller: hersteller.trim(),
-      modell: modell.trim(), ankauf_preis: parseFloat(preis), belegnummer_kasse: beleg || null,
-      unterschrift: sig, status: "offen",
+      modell: modell.trim(), zustand: "gebraucht", ankauf_preis: parseFloat(preis),
+      belegnummer_kasse: beleg || null, unterschrift: sig, status: "offen",
     }).select("id").single();
 
     setSaving(false);
