@@ -7,22 +7,17 @@ import { createClient } from "@/lib/supabase/browser";
 
 type Ankauf = {
   id: string; ankauf_nummer: string; kunden_name: string; hersteller: string;
-  modell: string; geraetetyp: string; zustand: string; ankauf_preis: number;
-  in_inventar: boolean; status: string; created_at: string;
+  modell: string; geraetetyp: string; ankauf_preis: number; belegnummer_kasse?: string;
+  status: string; created_at: string;
 };
 
-const ZUSTAND_CLS: Record<string, string> = {
-  neu: "text-blue-700 bg-blue-50 border-blue-200",
-  gebraucht: "text-amber-700 bg-amber-50 border-amber-200",
-  defekt: "text-red-700 bg-red-50 border-red-200",
-};
 const STATUS_CLS: Record<string, { label: string; cls: string }> = {
   offen: { label: "Offen", cls: "text-amber-700 bg-amber-50 border-amber-200" },
-  vollstaendig: { label: "Vollständig", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" },
-  abgeschlossen: { label: "Abgeschlossen", cls: "text-gray-500 bg-gray-100 border-gray-200" },
+  vollstaendig: { label: "Vollständig", cls: "text-blue-700 bg-blue-50 border-blue-200" },
+  abgeschlossen: { label: "Abgeschlossen", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" },
 };
-const TABS = ["Alle", "Offen", "Vollständig", "Abgeschlossen"];
-const TAB_MAP: Record<string, string> = { Offen: "offen", "Vollständig": "vollstaendig", Abgeschlossen: "abgeschlossen" };
+const TABS = ["Alle", "Offen", "Abgeschlossen"];
+const TAB_MAP: Record<string, string> = { Offen: "offen", Abgeschlossen: "abgeschlossen" };
 
 export default function AnkaufClient() {
   const supabase = createClient();
@@ -43,14 +38,8 @@ export default function AnkaufClient() {
     .filter(a => !search || a.ankauf_nummer.toLowerCase().includes(search.toLowerCase()) || a.kunden_name.toLowerCase().includes(search.toLowerCase()));
 
   const now = new Date();
-  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const monthItems = items.filter(a => a.created_at >= monthStart);
-  const stats = {
-    offen: items.filter(a => a.status === "offen").length,
-    vollstaendig: items.filter(a => a.status === "vollstaendig").length,
-    abgeschlossen: items.filter(a => a.status === "abgeschlossen").length,
-    monatSum: monthItems.reduce((s, a) => s + Number(a.ankauf_preis), 0),
-  };
+  const mKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthItems = items.filter(a => a.created_at.startsWith(mKey));
 
   return (
     <main className="min-h-screen bg-white">
@@ -64,21 +53,22 @@ export default function AnkaufClient() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          {[
-            { label: "Offen", value: stats.offen, cls: "text-amber-700" },
-            { label: "Vollständig", value: stats.vollstaendig, cls: "text-emerald-700" },
-            { label: "Abgeschlossen", value: stats.abgeschlossen, cls: "text-gray-500" },
-            { label: "Gesamt Monat", value: `${stats.monatSum.toFixed(2)} €`, cls: "text-gray-900" },
-          ].map(s => (
-            <div key={s.label} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-              <div className={`text-xl font-bold ${s.cls}`}>{s.value}</div>
-              <div className="text-[11px] text-gray-500">{s.label}</div>
-            </div>
-          ))}
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <div className="text-xl font-bold text-amber-700">{items.filter(a => a.status === "offen").length}</div>
+            <div className="text-[11px] text-amber-600">Offen</div>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+            <div className="text-xl font-bold text-emerald-700">{items.filter(a => a.status === "abgeschlossen").length}</div>
+            <div className="text-[11px] text-emerald-600">Abgeschlossen</div>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+            <div className="text-xl font-bold text-gray-900">{monthItems.reduce((s, a) => s + Number(a.ankauf_preis), 0).toFixed(2)} €</div>
+            <div className="text-[11px] text-gray-500">Monatsumsatz</div>
+          </div>
         </div>
 
-        {/* Filters + Search + Export */}
+        {/* Filters */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="flex gap-1">
             {TABS.map(t => (
@@ -89,17 +79,14 @@ export default function AnkaufClient() {
               </button>
             ))}
           </div>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="AN-Nr. oder Kunde suchen..."
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Suchen..."
             className="h-8 px-3 text-[12px] rounded-lg border border-gray-200 bg-white text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 w-48" />
           <div className="ml-auto flex items-center gap-2">
             <input type="month" value={exportMonth} onChange={e => setExportMonth(e.target.value)}
               className="h-8 px-2 text-[12px] rounded-lg border border-gray-200 text-gray-700 focus:outline-none" />
             {exportMonth && (
               <a href={`/api/ankauf/export?month=${exportMonth}`} download
-                className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center">
-                Export
-              </a>
+                className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center">Export</a>
             )}
           </div>
         </div>
@@ -113,11 +100,11 @@ export default function AnkaufClient() {
             <table className="w-full text-[12.5px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Nr.</th>
+                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500">AN-Nr.</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Gerät</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Kunde</th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Zustand</th>
                   <th className="text-right px-4 py-2.5 font-semibold text-gray-500">Preis</th>
+                  <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Beleg</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Status</th>
                   <th className="text-left px-4 py-2.5 font-semibold text-gray-500">Datum</th>
                 </tr>
@@ -131,8 +118,8 @@ export default function AnkaufClient() {
                       <td className="px-4 py-3 font-mono text-gray-600">{a.ankauf_nummer}</td>
                       <td className="px-4 py-3"><div className="font-medium text-gray-900">{a.hersteller} {a.modell}</div><div className="text-[11px] text-gray-400">{a.geraetetyp}</div></td>
                       <td className="px-4 py-3 text-gray-700">{a.kunden_name}</td>
-                      <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${ZUSTAND_CLS[a.zustand] ?? ""}`}>{a.zustand}</span></td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">{Number(a.ankauf_preis).toFixed(2)} €</td>
+                      <td className="px-4 py-3 text-gray-500 font-mono text-[11px]">{a.belegnummer_kasse ?? "—"}</td>
                       <td className="px-4 py-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${sc.cls}`}>{sc.label}</span></td>
                       <td className="px-4 py-3 text-gray-500">{new Date(a.created_at).toLocaleDateString("de-DE")}</td>
                     </tr>

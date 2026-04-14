@@ -66,7 +66,7 @@ function KaufvertragPDF({ ankauf, company }: { ankauf: any; company: any }) {
 
       // Meta
       createElement(View, { style: st.meta },
-        createElement(Text, { style: st.metaText }, `Datum: ${date}`),
+        createElement(Text, { style: st.metaText }, `Datum: ${date}${ankauf.belegnummer_kasse ? ` · Beleg: ${ankauf.belegnummer_kasse}` : ""}`),
         createElement(Text, { style: st.metaText }, company?.company_name ?? "Starphone"),
       ),
 

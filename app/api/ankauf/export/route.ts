@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   const headers = [
     "Ankauf-Nr", "Datum", "Kunde", "Telefon", "E-Mail", "Strasse", "PLZ", "Ort",
     "Ausweis-Nr", "Gerätetyp", "Hersteller", "Modell", "Speicher", "Farbe",
-    "IMEI", "Akku%", "Zustand", "Beschreibung", "Notiz", "Preis", "Status", "Im Inventar",
+    "IMEI", "Akku%", "Zustand", "Beschreibung", "Notiz", "Preis", "Belegnr. Kasse", "Status", "Im Inventar",
   ];
 
   const rows = items.map((a: any) => [
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     a.speicher ?? "", a.farbe ?? "", a.imei ?? "",
     a.akku_prozent != null ? String(a.akku_prozent) : "",
     a.zustand, a.beschreibung ?? "", a.notiz ?? "",
-    Number(a.ankauf_preis).toFixed(2), a.status, a.in_inventar ? "Ja" : "Nein",
+    Number(a.ankauf_preis).toFixed(2), a.belegnummer_kasse ?? "", a.status, a.in_inventar ? "Ja" : "Nein",
   ]);
 
   const csvContent = [
