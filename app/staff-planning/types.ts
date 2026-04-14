@@ -98,6 +98,36 @@ export function getNetHours(start: string, end: string): number {
   return Math.max(0, gross - breakH)
 }
 
+export interface VacationWorkflow {
+  id: string
+  staff_id: number
+  start_date: string
+  end_date: string
+  days: number
+  reason?: string
+  status: 'pending' | 'approved' | 'rejected'
+  requested_at: string
+  decided_at?: string
+  decided_by?: string
+}
+
+export function getWorkingDays(start: string, end: string): number {
+  const holidays = {
+    ...getNRWHolidays(new Date(start).getFullYear()),
+    ...getNRWHolidays(new Date(end).getFullYear()),
+  }
+  let count = 0
+  const d = new Date(start + 'T12:00:00')
+  const endD = new Date(end + 'T12:00:00')
+  while (d <= endD) {
+    const dow = d.getDay()
+    const dateStr = d.toISOString().split('T')[0]
+    if (dow !== 0 && dow !== 6 && !holidays[dateStr]) count++
+    d.setDate(d.getDate() + 1)
+  }
+  return count
+}
+
 export function formatTime(t: string) {
   return t.slice(0, 5)
 }

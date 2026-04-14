@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/browser'
-import { STAFF, Shift, VacationRequest, getNRWHolidays, getHoursFromTimes, formatTime } from '../types'
+import { STAFF, Shift, VacationRequest, VacationWorkflow, getNRWHolidays, getHoursFromTimes, formatTime } from '../types'
 
 const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
@@ -33,6 +33,7 @@ export default function StaffViewPage({ params }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [shifts, setShifts] = useState<Shift[]>([])
   const [vacations, setVacations] = useState<VacationRequest[]>([])
+  const [requests, setRequests] = useState<VacationWorkflow[]>([])
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState<string>('')
 
@@ -57,12 +58,14 @@ export default function StaffViewPage({ params }: Props) {
       const weekDates = getWeekDates(weekOffset)
       const start = fmt(weekDates[0])
       const end = fmt(weekDates[6])
-      const [{ data: s }, { data: v }] = await Promise.all([
+      const [{ data: s }, { data: v }, { data: r }] = await Promise.all([
         supabase.from('shifts').select('*').eq('staff_id', staffId).gte('date', start).lte('date', end),
         supabase.from('vacation_requests').select('*').eq('staff_id', staffId),
+        supabase.from('vacation_requests_workflow').select('*').eq('staff_id', staffId).order('requested_at', { ascending: false }),
       ])
       setShifts(s || [])
       setVacations(v || [])
+      setRequests((r || []) as VacationWorkflow[])
       setLoading(false)
     }
     load()
@@ -202,6 +205,36 @@ export default function StaffViewPage({ params }: Props) {
                 {v.note && <div className="text-gray-500 text-xs mt-0.5">{v.note}</div>}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Vacation requests */}
+        {requests.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 text-sm font-semibold text-gray-900">
+              Meine Urlaubsanträge
+            </div>
+            {requests.map(req => {
+              const statusCfg = {
+                pending: { label: 'Ausstehend', color: 'text-amber-600 bg-amber-50 border-amber-200' },
+                approved: { label: 'Genehmigt', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+                rejected: { label: 'Abgelehnt', color: 'text-red-600 bg-red-50 border-red-200' },
+              }[req.status]
+              return (
+                <div key={req.id} className="px-4 py-3 border-t border-gray-100 flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-700">
+                      {new Date(req.start_date).toLocaleDateString('de-DE')} – {new Date(req.end_date).toLocaleDateString('de-DE')}
+                      <span className="text-gray-400 ml-1 text-xs">({req.days} AT)</span>
+                    </div>
+                    {req.reason && <div className="text-xs text-gray-500 mt-0.5">{req.reason}</div>}
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusCfg.color}`}>
+                    {statusCfg.label}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
 
