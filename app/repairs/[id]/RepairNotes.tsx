@@ -7,11 +7,14 @@ import { createClient } from "@/lib/supabase/browser";
 
 // ─── Quick-Buttons ────────────────────────────────────────────────────────────
 
+const STAFF_BUTTONS = [
+  { label: "ONUR",  name: "Onur" },
+  { label: "BURAK", name: "Burak" },
+  { label: "CHRIS", name: "Chris" },
+  { label: "EFE",   name: "Efe" },
+];
+
 const QUICK_NOTES = [
-  { label: "ONUR",     text: "ONUR" },
-  { label: "BURAK",     text: "BURAK" },
-  { label: "CHRIS",     text: "CHRIS" },
-  { label: "EFE",     text: "EFE" },
   { label: "Kunde angerufen",     text: "Kunde telefonisch kontaktiert." },
   { label: "Keine Antwort",       text: "Kunde nicht erreichbar, Nachricht hinterlassen." },
   { label: "Ersatzteil bestellt", text: "Ersatzteil bestellt, Lieferung in 1–3 Werktagen." },
@@ -44,9 +47,10 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
   const [notes,    setNotes]    = useState<Note[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [text,     setText]     = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [saved,    setSaved]    = useState(false);
-  const [userName, setUserName] = useState("Mitarbeiter");
+  const [saving,       setSaving]       = useState(false);
+  const [saved,        setSaved]        = useState(false);
+  const [userName,     setUserName]     = useState("Mitarbeiter");
+  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -95,10 +99,11 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
       repair_id: repairId,
       note: text.trim(),
       created_by: userId,
-      note_author: userName,
+      note_author: selectedStaff ?? userName,
     });
     if (error) { alert("Fehler: " + error.message); setSaving(false); return; }
     setText("");
+    setSelectedStaff(null);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     loadNotes();
@@ -126,6 +131,27 @@ export default function RepairNotes({ repairId }: { repairId: string }) {
       <div className="bg-white">
         {/* ── Eingabebereich ── */}
         <div className="px-4 py-3 border-b border-gray-50">
+
+          {/* Staff buttons (mutually exclusive author selector) */}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {STAFF_BUTTONS.map(s => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => setSelectedStaff(prev => prev === s.name ? null : s.name)}
+                className={[
+                  "h-6 px-2.5 rounded-md text-[10.5px] font-bold border transition-colors",
+                  selectedStaff === s.name
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-gray-500 hover:text-gray-900",
+                ].join(" ")}>
+                {s.label}
+              </button>
+            ))}
+            {selectedStaff && (
+              <span className="self-center text-[10px] text-gray-400 ml-1">Autor: {selectedStaff}</span>
+            )}
+          </div>
 
           {/* Quick-Buttons */}
           <div className="flex flex-wrap gap-1.5 mb-3">
