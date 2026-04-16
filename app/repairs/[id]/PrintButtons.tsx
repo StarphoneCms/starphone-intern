@@ -1,22 +1,34 @@
 "use client";
 
 // Pfad: src/app/repairs/[id]/PrintButtons.tsx
-// Öffnet die Druckseite in einem neuen Tab
 
 type Props = {
   repairId: string;
 };
 
 export function PrintButtons({ repairId }: Props) {
-  function openPrint(type: "werkstatt" | "kunde") {
-    window.open(`/repairs/${repairId}/print?type=${type}`, "_blank");
+  function openWerkstatt() {
+    window.open(`/repairs/${repairId}/print?type=werkstatt`, "_blank");
+  }
+
+  function openKundenbeleg() {
+    // 148mm × 210mm ≈ 560px × 794px at 96dpi
+    const w = 560;
+    const h = 794;
+    const left = Math.round((screen.width - w) / 2);
+    const top = Math.round((screen.height - h) / 2);
+    window.open(
+      `/repairs/${repairId}/receipt`,
+      "kundenbeleg",
+      `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
   }
 
   return (
     <div className="flex items-center gap-2">
       {/* Werkstatt-Zettel */}
       <button
-        onClick={() => openPrint("werkstatt")}
+        onClick={openWerkstatt}
         title="Werkstatt-Zettel drucken"
         className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
       >
@@ -31,7 +43,7 @@ export function PrintButtons({ repairId }: Props) {
 
       {/* Kundenbeleg */}
       <button
-        onClick={() => openPrint("kunde")}
+        onClick={openKundenbeleg}
         title="Kundenbeleg drucken"
         className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
       >
