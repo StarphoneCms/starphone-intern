@@ -187,6 +187,36 @@ export default async function RepairDetailPage({
               <DataRow label="Gerätecode" value={repair.geraete_code} mono />
             </SectionCard>
 
+            {/* Preise – nur anzeigen wenn vorhanden */}
+            {(repair.reparatur_preis || repair.zusatzverkauf_items) && (
+              <SectionCard title="Preise">
+                {repair.reparatur_preis != null && Number(repair.reparatur_preis) > 0 && (
+                  <DataRow label="Reparatur" value={`${Number(repair.reparatur_preis).toFixed(2)} €`} />
+                )}
+                {repair.zusatzverkauf_items && (() => {
+                  const items: { label: string; variante: string; preis: number }[] =
+                    typeof repair.zusatzverkauf_items === "string"
+                      ? JSON.parse(repair.zusatzverkauf_items)
+                      : repair.zusatzverkauf_items;
+                  return items.map((item, i) => (
+                    <DataRow
+                      key={i}
+                      label={`${item.label} ${item.variante}`}
+                      value={`${Number(item.preis).toFixed(2)} €`}
+                    />
+                  ));
+                })()}
+                {(Number(repair.reparatur_preis || 0) + Number(repair.zusatzverkauf_gesamt || 0)) > 0 && (
+                  <div className="flex items-start px-4 py-2.5 border-t border-gray-200">
+                    <span className="w-32 shrink-0 text-[11.5px] font-semibold text-gray-600 pt-px">Gesamt</span>
+                    <span className="flex-1 text-[12.5px] font-semibold text-gray-900">
+                      {(Number(repair.reparatur_preis || 0) + Number(repair.zusatzverkauf_gesamt || 0)).toFixed(2)} €
+                    </span>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
             {/* ✅ Verlauf + Notizen als eigene Client-Komponente */}
             <RepairNotes repairId={id} />
 
