@@ -23,6 +23,9 @@ export type Repair = {
   kunden_adresse?: string | null;
   mitarbeiter_name?: string | null;
   fach_nummer?: number | null;
+  reparatur_preis?: number | null;
+  zusatzverkauf_items?: { label: string; variante: string; preis: number }[] | null;
+  zusatzverkauf_gesamt?: number | null;
   customers?: {
     id: string;
     customer_code: string | null;
@@ -52,6 +55,10 @@ function formatDateShort(iso: string) {
   });
 }
 
+function formatPrice(n: number) {
+  return n.toFixed(2).replace(".", ",");
+}
+
 function QRCanvas({ url, size = 80 }: { url: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -66,6 +73,13 @@ function QRCanvas({ url, size = 80 }: { url: string; size?: number }) {
 }
 
 export default function PrintClient({ repair, type }: Props) {
+  const zusatzItems = (repair.zusatzverkauf_items ?? []) as { label: string; variante: string; preis: number }[];
+  const zusatzGesamt = repair.zusatzverkauf_gesamt ?? 0;
+  const reparaturPreis = repair.reparatur_preis;
+  const hasPreis = reparaturPreis != null && reparaturPreis > 0;
+  const hasZusatz = zusatzItems.length > 0;
+  const total = (hasPreis ? reparaturPreis : 0) + zusatzGesamt;
+
   const kundenName = repair.customers
     ? `${repair.customers.first_name ?? ""} ${repair.customers.last_name ?? ""}`.trim()
     : repair.kunden_name;
@@ -157,6 +171,11 @@ export default function PrintClient({ repair, type }: Props) {
         .footer span { font-size: 8px; color: #6b7280; }
         .status-pill { font-size: 7.5px !important; font-weight: 600 !important; letter-spacing: 0.06em; background: #f3f4f6; color: #374151 !important; padding: 2px 6px; border-radius: 3px; }
 
+        .preis-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.5mm; font-size: 10px; }
+        .preis-row .preis-lbl { color: #374151; }
+        .preis-row .preis-val { font-family: "SF Mono", "Courier New", monospace; font-size: 9.5px; color: #000; }
+        .preis-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 1.5mm; border-top: 0.5px solid #000; font-size: 11px; font-weight: 700; }
+
         .info-text { font-size: 9.5px; color: #374151; text-align: center; padding: 3mm 0 2mm; font-style: italic; }
         .qr-row { display: flex; justify-content: center; gap: 14mm; margin-top: 2mm; }
         .qr-block { display: flex; flex-direction: column; align-items: center; gap: 1.5mm; }
@@ -229,6 +248,32 @@ export default function PrintClient({ repair, type }: Props) {
             <div className="problem">{repair.reparatur_problem}</div>
             {repair.internal_note && <div className="int-note">⚑ {repair.internal_note}</div>}
 
+            {/* Preise */}
+            {(hasPreis || hasZusatz) && (
+              <>
+                <div className="div" />
+                <div className="sec-title">Preise</div>
+                {hasPreis && (
+                  <div className="preis-row">
+                    <span className="preis-lbl">Reparatur</span>
+                    <span className="preis-val">{formatPrice(reparaturPreis)} €</span>
+                  </div>
+                )}
+                {zusatzItems.map((item, i) => (
+                  <div className="preis-row" key={i}>
+                    <span className="preis-lbl">{item.label} {item.variante}</span>
+                    <span className="preis-val">{formatPrice(item.preis)} €</span>
+                  </div>
+                ))}
+                {total > 0 && (
+                  <div className="preis-total">
+                    <span>Gesamt</span>
+                    <span>{formatPrice(total)} €</span>
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="div" />
 
             <div className="footer">
@@ -279,6 +324,32 @@ export default function PrintClient({ repair, type }: Props) {
 
             <div className="sec-title">Beschreibung</div>
             <div className="problem">{repair.reparatur_problem}</div>
+
+            {/* Zusatzverkäufe + Preise */}
+            {(hasPreis || hasZusatz) && (
+              <>
+                <div className="div" />
+                <div className="sec-title">Preise</div>
+                {hasPreis && (
+                  <div className="preis-row">
+                    <span className="preis-lbl">Reparatur</span>
+                    <span className="preis-val">{formatPrice(reparaturPreis)} €</span>
+                  </div>
+                )}
+                {zusatzItems.map((item, i) => (
+                  <div className="preis-row" key={i}>
+                    <span className="preis-lbl">{item.label} {item.variante}</span>
+                    <span className="preis-val">{formatPrice(item.preis)} €</span>
+                  </div>
+                ))}
+                {total > 0 && (
+                  <div className="preis-total">
+                    <span>Gesamt</span>
+                    <span>{formatPrice(total)} €</span>
+                  </div>
+                )}
+              </>
+            )}
 
             <div className="div" />
 

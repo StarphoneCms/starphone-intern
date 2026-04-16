@@ -25,6 +25,7 @@ export default async function PrintPage({
       reparatur_problem, internal_note,
       kunden_name, kunden_telefon, kunden_email, kunden_adresse,
       mitarbeiter_name, fach_nummer,
+      reparatur_preis, zusatzverkauf_items, zusatzverkauf_gesamt,
       customers(id, customer_code, first_name, last_name, phone, email, address)
     `)
     .eq("id", id)
