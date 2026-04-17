@@ -126,8 +126,9 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         .detail { font-size: 14px; color: #222; line-height: 1.5; margin-bottom: 0.5mm; }
         .mono { font-family: "Courier New", monospace; }
 
-        /* GERÄT – top priority */
-        .geraet-big {
+        /* GERÄT + SCHADEN – same prominent style */
+        .geraet-text,
+        .schaden-text {
           font-size: 24px;
           font-weight: 900;
           color: #000;
@@ -136,6 +137,7 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           margin-bottom: 3mm;
           line-height: 1.15;
           letter-spacing: -0.01em;
+          white-space: pre-wrap;
         }
         .geraet-imei {
           font-family: "Courier New", monospace;
@@ -143,19 +145,6 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           font-weight: 600;
           color: #000;
           margin-top: 1.5mm;
-        }
-
-        /* SCHADEN – second priority, big dark box */
-        .schaden-box {
-          background: #000;
-          color: #fff;
-          padding: 5mm 4mm;
-          margin: 3mm 0;
-          font-size: 20px;
-          font-weight: 900;
-          line-height: 1.3;
-          border-radius: 2mm;
-          white-space: pre-wrap;
         }
         .int-note { font-size: 11px; color: #666; font-style: italic; margin-top: 2mm; }
 
@@ -168,6 +157,7 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           .no-print { display: none !important; }
           .page-wrap { padding: 0; }
           .label { box-shadow: none; padding: 0; width: 100%; }
+          .geraet-text, .schaden-text { font-size: 24px; font-weight: 900; color: #000 !important; }
           @page { size: A5; margin: 8mm; }
         }
       `}</style>
@@ -204,18 +194,18 @@ export default function LabelClient({ repair }: { repair: Repair }) {
 
           <hr className="hr" />
 
-          {/* Gerät – prominent */}
+          {/* Gerät */}
           <div className="sec-big">Gerät</div>
-          <div className="geraet-big">
+          <div className="geraet-text">
             {repair.hersteller} {repair.modell}
             {repair.geraetetyp ? ` (${repair.geraetetyp})` : ""}
           </div>
           {repair.imei && <div className="geraet-imei">IMEI: {repair.imei}</div>}
           {repair.geraete_code && <div className="geraet-imei">PIN: {repair.geraete_code}</div>}
 
-          {/* Schaden – dark emphasis box */}
-          <div className="sec-big" style={{ marginTop: "3mm" }}>Schaden</div>
-          <div className="schaden-box">{repair.reparatur_problem}</div>
+          {/* Schaden – same style as Gerät */}
+          <div className="sec-big" style={{ marginTop: "5mm" }}>Schaden</div>
+          <div className="schaden-text">{repair.reparatur_problem}</div>
           {repair.internal_note && <div className="int-note">Intern: {repair.internal_note}</div>}
 
           {/* Zusatzverkäufe */}
