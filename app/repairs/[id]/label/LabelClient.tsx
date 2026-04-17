@@ -76,7 +76,8 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         html, body {
           background: #f0f0f0;
           font-family: Arial, sans-serif;
-          font-size: 11px;
+          font-size: 13px;
+          line-height: 1.6;
           color: #000;
         }
         header, nav { display: none !important; }
@@ -98,72 +99,76 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         .label {
           width: 148mm;
           background: white;
-          padding: 8mm 10mm;
+          padding: 8mm;
           box-shadow: 0 2px 16px rgba(0,0,0,0.12);
           font-family: Arial, sans-serif;
-          font-size: 11px;
+          font-size: 13px;
+          line-height: 1.6;
         }
 
         .label-header {
           display: flex;
           justify-content: space-between;
           align-items: baseline;
-          margin-bottom: 2mm;
+          margin-bottom: 3mm;
         }
-        .logo { font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
-        .aufnr { font-family: "Courier New", monospace; font-size: 13px; font-weight: 700; }
+        .logo { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
+        .aufnr { font-family: "Courier New", monospace; font-size: 18px; font-weight: 700; }
 
-        .meta { font-size: 10px; color: #333; margin-bottom: 1mm; line-height: 1.6; }
+        .meta { font-size: 12px; color: #333; margin-bottom: 2mm; line-height: 1.7; }
 
-        .hr { border: none; border-top: 0.5px solid #bbb; margin: 2.5mm 0; }
+        .hr { border: none; border-top: 0.5px solid #bbb; margin: 5mm 0; }
 
-        .sec { font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888; margin-bottom: 1.5mm; }
-        .sec-big { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #666; margin-bottom: 1.5mm; }
+        .sec { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 2mm; }
+        .sec-big { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #666; margin-bottom: 2mm; }
 
-        .name { font-size: 12px; font-weight: 700; margin-bottom: 0.5mm; }
-        .detail { font-size: 10px; color: #333; line-height: 1.5; }
+        .name { font-size: 18px; font-weight: 700; margin-bottom: 1mm; line-height: 1.2; }
+        .detail { font-size: 14px; color: #222; line-height: 1.5; margin-bottom: 0.5mm; }
         .mono { font-family: "Courier New", monospace; }
 
         /* GERÄT – top priority */
         .geraet-big {
-          font-size: 18px;
+          font-size: 24px;
           font-weight: 900;
           color: #000;
           border-bottom: 1px solid #000;
-          padding-bottom: 2mm;
-          margin-bottom: 2mm;
-          line-height: 1.2;
+          padding-bottom: 3mm;
+          margin-bottom: 3mm;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
         }
         .geraet-imei {
           font-family: "Courier New", monospace;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 600;
           color: #000;
-          margin-top: 1mm;
+          margin-top: 1.5mm;
         }
 
-        /* SCHADEN – second priority, dark box */
+        /* SCHADEN – second priority, big dark box */
         .schaden-box {
           background: #000;
           color: #fff;
-          padding: 3mm;
-          margin: 1mm 0 2mm;
-          font-size: 15px;
+          padding: 5mm 4mm;
+          margin: 3mm 0;
+          font-size: 20px;
           font-weight: 900;
           line-height: 1.3;
+          border-radius: 2mm;
           white-space: pre-wrap;
         }
-        .int-note { font-size: 9px; color: #666; font-style: italic; margin-top: 1mm; }
+        .int-note { font-size: 11px; color: #666; font-style: italic; margin-top: 2mm; }
 
-        .price-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 1mm; }
-        .price-total { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; padding-top: 1.5mm; border-top: 1px solid #000; }
+        .price-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 2mm; line-height: 1.4; }
+        .price-total { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; padding-top: 3mm; margin-top: 2mm; border-top: 2px solid #000; line-height: 1.2; }
 
         @media print {
-          html, body { background: white; width: 148mm; font-family: Arial, sans-serif; font-size: 11px; }
+          html, body { background: white; width: 148mm; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; }
+          h1 { font-size: 22px; }
           .no-print { display: none !important; }
           .page-wrap { padding: 0; }
-          .label { box-shadow: none; padding: 0; }
-          @page { size: A5; margin: 10mm; }
+          .label { box-shadow: none; padding: 0; width: 100%; }
+          @page { size: A5; margin: 8mm; }
         }
       `}</style>
 
@@ -176,7 +181,7 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         <div className="label">
           {/* Header */}
           <div className="label-header">
-            <span className="logo">STARPHONE</span>
+            <h1 className="logo">STARPHONE</h1>
             <span className="aufnr">{repair.auftragsnummer}</span>
           </div>
           <div className="meta">
