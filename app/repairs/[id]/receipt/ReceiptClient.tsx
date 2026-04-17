@@ -138,10 +138,11 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
           align-items: flex-start;
           margin-bottom: 5mm;
         }
-        .logo-text {
-          font-size: 18px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
+        .logo-img {
+          height: 32px;
+          width: auto;
+          object-fit: contain;
+          display: block;
         }
         .shop-info {
           font-size: 9px;
@@ -323,6 +324,7 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
 
         @media print {
           html, body { background: white; width: 148mm; font-family: Arial, sans-serif; font-size: 11px; }
+          img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
           .page-wrap { padding: 0; }
           .receipt { box-shadow: none; min-height: auto; padding: 0; }
@@ -348,7 +350,8 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
           {/* ── HEADER ── */}
           <div className="receipt-header">
             <div>
-              <div className="logo-text">STARPHONE</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/logo.png" alt="Starphone" className="logo-img" />
               <div className="shop-info">
                 Blondelstr. 10, 52062 Aachen<br />
                 Tel: 0241 401 37 37<br />

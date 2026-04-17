@@ -116,7 +116,7 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           align-items: baseline;
           margin-bottom: 3mm;
         }
-        .logo { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
+        .logo-img { height: 32px; width: auto; object-fit: contain; display: block; }
         .aufnr { font-family: "Courier New", monospace; font-size: 18px; font-weight: 700; }
 
         .meta { font-size: 12px; color: #333; margin-bottom: 2mm; line-height: 1.7; }
@@ -178,7 +178,7 @@ export default function LabelClient({ repair }: { repair: Repair }) {
 
         @media print {
           html, body { background: white; width: 148mm; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; }
-          h1 { font-size: 22px; }
+          img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
           .page-wrap { padding: 0; }
           .label { box-shadow: none; padding: 0; width: 100%; }
@@ -204,7 +204,8 @@ export default function LabelClient({ repair }: { repair: Repair }) {
 
           {/* Header */}
           <div className="label-header">
-            <h1 className="logo">STARPHONE</h1>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/logo.png" alt="Starphone" className="logo-img" />
             <span className="aufnr">{repair.auftragsnummer}</span>
           </div>
           <div className="meta">
