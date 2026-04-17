@@ -118,12 +118,41 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         .hr { border: none; border-top: 0.5px solid #bbb; margin: 2.5mm 0; }
 
         .sec { font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888; margin-bottom: 1.5mm; }
+        .sec-big { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #666; margin-bottom: 1.5mm; }
 
         .name { font-size: 12px; font-weight: 700; margin-bottom: 0.5mm; }
         .detail { font-size: 10px; color: #333; line-height: 1.5; }
         .mono { font-family: "Courier New", monospace; }
 
-        .problem { font-size: 10.5px; line-height: 1.5; white-space: pre-wrap; }
+        /* GERÄT – top priority */
+        .geraet-big {
+          font-size: 18px;
+          font-weight: 900;
+          color: #000;
+          border-bottom: 1px solid #000;
+          padding-bottom: 2mm;
+          margin-bottom: 2mm;
+          line-height: 1.2;
+        }
+        .geraet-imei {
+          font-family: "Courier New", monospace;
+          font-size: 12px;
+          font-weight: 600;
+          color: #000;
+          margin-top: 1mm;
+        }
+
+        /* SCHADEN – second priority, dark box */
+        .schaden-box {
+          background: #000;
+          color: #fff;
+          padding: 3mm;
+          margin: 1mm 0 2mm;
+          font-size: 15px;
+          font-weight: 900;
+          line-height: 1.3;
+          white-space: pre-wrap;
+        }
         .int-note { font-size: 9px; color: #666; font-style: italic; margin-top: 1mm; }
 
         .price-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 1mm; }
@@ -170,20 +199,18 @@ export default function LabelClient({ repair }: { repair: Repair }) {
 
           <hr className="hr" />
 
-          {/* Gerät */}
-          <div className="sec">Gerät</div>
-          <div className="detail" style={{ fontWeight: 600, fontSize: "11px" }}>
+          {/* Gerät – prominent */}
+          <div className="sec-big">Gerät</div>
+          <div className="geraet-big">
             {repair.hersteller} {repair.modell}
             {repair.geraetetyp ? ` (${repair.geraetetyp})` : ""}
           </div>
-          {repair.imei && <div className="detail mono">IMEI: {repair.imei}</div>}
-          {repair.geraete_code && <div className="detail mono">PIN: {repair.geraete_code}</div>}
+          {repair.imei && <div className="geraet-imei">IMEI: {repair.imei}</div>}
+          {repair.geraete_code && <div className="geraet-imei">PIN: {repair.geraete_code}</div>}
 
-          <hr className="hr" />
-
-          {/* Schaden */}
-          <div className="sec">Schaden</div>
-          <div className="problem">{repair.reparatur_problem}</div>
+          {/* Schaden – dark emphasis box */}
+          <div className="sec-big" style={{ marginTop: "3mm" }}>Schaden</div>
+          <div className="schaden-box">{repair.reparatur_problem}</div>
           {repair.internal_note && <div className="int-note">Intern: {repair.internal_note}</div>}
 
           {/* Zusatzverkäufe */}
