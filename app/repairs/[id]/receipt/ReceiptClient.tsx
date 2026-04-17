@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import QRCode from "qrcode";
+import { useEffect } from "react";
 
 type ZusatzItem = {
-  id: string;
+  id?: string;
   label: string;
   variante: string;
   preis: number;
@@ -47,51 +46,43 @@ type Repair = {
   } | null;
 };
 
-function formatDateShort(iso: string) {
+function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+    day: "2-digit", month: "2-digit", year: "numeric",
   });
 }
 
-function formatPrice(n: number) {
-  return n.toFixed(2).replace(".", ",");
+function fmtPrice(n: number) {
+  return n.toFixed(2).replace(".", ",") + " €";
 }
 
-function parseZusatzItems(raw: string | ZusatzItem[] | null | undefined): ZusatzItem[] {
+function parseZusatz(raw: string | ZusatzItem[] | null | undefined): ZusatzItem[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
   try { return JSON.parse(raw); } catch { return []; }
 }
 
-function QRCanvas({ url, size = 70 }: { url: string; size?: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, url, {
-        width: size,
-        margin: 1,
-        color: { dark: "#000000", light: "#ffffff" },
-      });
-    }
-  }, [url, size]);
-  return <canvas ref={canvasRef} style={{ display: "block" }} />;
-}
-
 export default function ReceiptClient({ repair }: { repair: Repair }) {
-  const zusatzItems = parseZusatzItems(repair.zusatzverkauf_items);
+  const kundenName = repair.customers
+    ? `${repair.customers.first_name ?? ""} ${repair.customers.last_name ?? ""}`.trim() || repair.kunden_name
+    : repair.kunden_name;
+  const telefon = repair.customers?.phone ?? repair.kunden_telefon;
+  const email = repair.customers?.email ?? repair.kunden_email;
+
+  const zusatzItems = parseZusatz(repair.zusatzverkauf_items);
   const zusatzGesamt = repair.zusatzverkauf_gesamt ?? 0;
   const reparaturPreis = repair.reparatur_preis;
   const hasPreis = reparaturPreis != null && reparaturPreis > 0;
   const hasZusatz = zusatzItems.length > 0;
   const total = (hasPreis ? reparaturPreis : 0) + zusatzGesamt;
 
-  const agbUrl = "https://starphone.de/pages/geschaeftsbedingungen-agb";
+  const startet = repair.geraet_startet;
+  const dwichtig = repair.daten_wichtig;
+  const hasStatus = !!startet || !!dwichtig;
 
   useEffect(() => {
-    const timer = setTimeout(() => window.print(), 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => window.print(), 300);
+    return () => clearTimeout(t);
   }, []);
 
   return (
@@ -101,8 +92,8 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
         html, body {
           background: #f0f0f0;
           font-family: Arial, sans-serif;
-          font-size: 11px;
-          line-height: 1.3;
+          font-size: 10px;
+          line-height: 1.4;
           color: #000;
           margin: 0;
           padding: 0;
@@ -123,228 +114,125 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
 
         .page-wrap { display: flex; justify-content: center; padding: 24px 16px; }
 
-        .receipt {
+        .doc {
           width: 148mm;
-          min-height: 210mm;
           background: white;
-          padding: 10mm;
-          padding-top: 0;
+          padding: 6mm 8mm;
           box-shadow: 0 2px 16px rgba(0,0,0,0.12);
           font-family: Arial, sans-serif;
-          font-size: 11px;
-          line-height: 1.3;
+          font-size: 10px;
+          line-height: 1.4;
           color: #000;
         }
-        .receipt > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
+        .doc > *:first-child { margin-top: 0; }
 
         /* Header */
-        .receipt-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-top: 0;
-          margin-bottom: 3mm;
-        }
-        .logo-img {
-          height: 32px;
-          width: auto;
-          object-fit: contain;
-          display: block;
-        }
-        .shop-info {
-          font-size: 9px;
-          color: #444;
-          margin-top: 1.5mm;
-          line-height: 1.35;
-        }
-        .header-right {
-          text-align: right;
-        }
-        .doc-type {
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          font-variant: small-caps;
-          color: #333;
-        }
-        .auftragsnr {
-          font-size: 13px;
-          font-weight: 700;
-          margin-top: 1.5mm;
-          font-family: "Courier New", monospace;
-        }
-        .datum {
-          font-size: 9px;
-          color: #444;
-          margin-top: 1mm;
-        }
+        .hdr { display: flex; justify-content: space-between; align-items: center; gap: 6mm; }
+        .hdr-logo { height: 28px; width: auto; object-fit: contain; display: block; }
+        .hdr-logo-fallback { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; color: #000; }
+        .hdr-right { text-align: right; line-height: 1.25; }
+        .hdr-kind { font-size: 8px; font-weight: 600; letter-spacing: 0.12em; color: #888; text-transform: uppercase; }
+        .hdr-nr { font-size: 13px; font-weight: 700; font-family: "Courier New", monospace; margin-top: 0.5mm; }
+        .hdr-date { font-size: 9px; color: #666; margin-top: 0.5mm; }
 
-        /* Sections */
-        .divider {
-          border: none;
-          border-top: 0.5px solid #ccc;
-          margin: 2mm 0;
-        }
-        .sec-title {
-          font-size: 8px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: #888;
-          margin-bottom: 1mm;
-        }
+        .hr { border: none; border-top: 0.5px solid #d4d4d4; margin: 3mm 0; }
 
-        /* Auftrag */
-        .info-line {
-          font-size: 11px;
-          line-height: 1.4;
-        }
+        /* Two col info */
+        .info-row { display: flex; justify-content: space-between; font-size: 10px; color: #333; }
+
+        /* Section label */
+        .sec { font-size: 8px; font-weight: 700; letter-spacing: 0.14em; color: #999; text-transform: uppercase; margin-bottom: 1mm; }
+
+        /* Kunde */
+        .k-name { font-size: 12px; font-weight: 700; line-height: 1.2; }
+        .k-contact { font-size: 10px; color: #555; margin-top: 0.5mm; }
 
         /* Gerät */
-        .geraet-line {
-          font-size: 11px;
-          font-weight: 600;
-          margin-bottom: 1mm;
-        }
-        .geraet-detail {
-          font-size: 10px;
-          color: #333;
-          font-family: "Courier New", monospace;
-        }
+        .g-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+        .g-ids { font-size: 10px; color: #555; font-family: "Courier New", monospace; margin-top: 0.5mm; }
 
-        /* Problem */
-        .problem-text {
-          font-size: 11px;
-          line-height: 1.3;
-          white-space: pre-wrap;
-        }
+        /* Schaden */
+        .s-text { font-size: 11px; line-height: 1.4; white-space: pre-wrap; }
+        .s-status { font-size: 10px; color: #333; margin-top: 1.5mm; }
+        .badge { display: inline-block; padding: 0 1.5mm; border-radius: 0.8mm; font-weight: 700; font-size: 9.5px; vertical-align: baseline; }
+        .badge.ja { background: #d1fae5; color: #065f46; }
+        .badge.nein { background: #fee2e2; color: #991b1b; }
 
-        /* Status pills */
-        .status-row { display: flex; gap: 5mm; margin-top: 2mm; font-size: 10px; flex-wrap: wrap; }
-        .status-item { display: flex; gap: 1.5mm; align-items: center; }
-        .status-label { color: #555; }
-        .status-badge {
-          display: inline-block;
-          padding: 0.3mm 2mm;
-          border-radius: 1mm;
-          font-weight: 700;
-          font-size: 10px;
-        }
-        .status-badge.ja { background: #d1fae5; color: #065f46; }
-        .status-badge.nein { background: #fee2e2; color: #991b1b; }
-
-        .reklamation-banner {
-          background: #f59e0b;
-          color: #000;
-          padding: 2mm 3mm;
-          margin: 0 0 2mm 0;
-          font-size: 13px;
-          font-weight: 900;
-          border-radius: 1.5mm;
-          letter-spacing: 0.02em;
-        }
-        .reklamation-banner .bezug { font-family: "Courier New", monospace; font-size: 12px; margin-left: 2mm; }
-
-        .kunde-notiz {
-          font-size: 10px;
-          color: #222;
-          line-height: 1.3;
-          margin-top: 1.5mm;
-          padding: 1.5mm 2.5mm;
-          background: #f9fafb;
-          border-left: 1.5px solid #000;
-        }
-
-        /* Zusatzverkäufe */
-        .zusatz-table {
-          width: 100%;
-          font-size: 10px;
-          border-collapse: collapse;
-        }
-        .zusatz-table td {
-          padding: 1mm 0;
-        }
-        .zusatz-table td:last-child {
-          text-align: right;
-          white-space: nowrap;
-        }
-
-        /* Preisübersicht */
-        .preis-table {
-          width: 100%;
-          font-size: 11px;
-          border-collapse: collapse;
-        }
-        .preis-table td {
-          padding: 1.2mm 0;
-        }
-        .preis-table td:last-child {
-          text-align: right;
-          white-space: nowrap;
-        }
-        .preis-total {
-          border-top: 1px solid #000;
-          font-weight: 700;
-          font-size: 12px;
-        }
-
-        /* Unterschrift */
-        .sig-section {
-          margin-top: 2mm;
-        }
-        .sig-img {
-          max-width: 80mm;
-          height: auto;
-          display: block;
-        }
-        .sig-label {
-          font-size: 9px;
-          color: #666;
-          margin-top: 1mm;
-          border-top: 0.5px solid #999;
-          padding-top: 1mm;
-          width: 80mm;
-        }
-
-        /* Footer */
-        .receipt-footer {
-          margin-top: 3mm;
-          text-align: center;
-        }
-        .footer-msg {
-          font-size: 10px;
+        .note {
+          font-size: 9.5px;
+          color: #555;
           font-style: italic;
-          color: #333;
-          margin-bottom: 2mm;
+          margin-top: 1.5mm;
+          padding: 1.2mm 2mm;
+          border-left: 2px solid #999;
+          background: #fafafa;
+          line-height: 1.35;
         }
-        .qr-wrap {
-          display: flex;
-          flex-direction: column;
+
+        /* Reklamation badge – inline, next to schaden */
+        .rekl {
+          display: inline-flex;
           align-items: center;
           gap: 1.5mm;
+          background: #fef3c7;
+          color: #78350f;
+          padding: 0.8mm 2mm;
+          border-radius: 0.8mm;
+          font-size: 9.5px;
+          font-weight: 700;
+          margin-top: 2mm;
+          border: 0.5px solid #f59e0b;
         }
-        .qr-label {
+        .rekl-label { letter-spacing: 0.06em; }
+        .rekl-bezug { font-family: "Courier New", monospace; font-weight: 600; }
+
+        /* Zusatzverkäufe */
+        .zv-row { display: flex; justify-content: space-between; font-size: 10px; padding: 0.5mm 0; }
+        .zv-row .zv-name { color: #333; }
+
+        /* Preise */
+        .p-row { display: flex; justify-content: space-between; font-size: 10.5px; padding: 0.6mm 0; }
+        .p-row .p-lbl { color: #444; }
+        .p-row .p-val { font-variant-numeric: tabular-nums; }
+        .p-total {
+          display: flex; justify-content: space-between; align-items: baseline;
+          font-size: 14px; font-weight: 700;
+          border-top: 1px solid #000;
+          padding-top: 1.5mm; margin-top: 1mm;
+        }
+        .p-disclaimer { font-size: 9px; color: #888; font-style: italic; margin-top: 1.5mm; line-height: 1.4; }
+
+        /* Unterschrift */
+        .sig-img { max-height: 25mm; width: auto; display: block; }
+        .sig-line { width: 70mm; border-top: 0.5px solid #000; margin-top: 0.5mm; padding-top: 0.8mm; font-size: 9px; color: #666; }
+
+        /* Footer */
+        .footer {
+          margin-top: 4mm;
+          padding-top: 2mm;
+          border-top: 0.5px solid #d4d4d4;
+          text-align: center;
           font-size: 8px;
-          color: #666;
+          color: #888;
+          letter-spacing: 0.02em;
         }
 
         @media print {
           html, body {
             background: white;
-            width: 148mm;
             font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.3;
-            margin: 0 !important;
-            padding: 0 !important;
+            font-size: 10px;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 0;
           }
           img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
           .page-wrap { padding: 0; margin: 0; }
-          .receipt { box-shadow: none; min-height: auto; padding: 0; margin: 0; }
-          .receipt > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
-          @page { size: A5; margin: 5mm 8mm 8mm 8mm; }
+          .doc { box-shadow: none; padding: 0; margin: 0; width: 100%; }
+          .sec, .hr, .p-total, .footer, .sig-img, .rekl { page-break-inside: avoid; }
+          @page { size: A5; margin: 6mm 8mm; }
         }
       `}</style>
 
@@ -354,148 +242,145 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
       </div>
 
       <div className="page-wrap">
-        <div className="receipt">
-          {/* Reklamation – oben, prominent */}
-          {repair.ist_reklamation && (
-            <div className="reklamation-banner">
-              REKLAMATION
-              {repair.reklamation_bezug && <span className="bezug">{repair.reklamation_bezug}</span>}
+        <div className="doc">
+
+          {/* 1. HEADER */}
+          <div className="hdr">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/logo.png" alt="Starphone" className="hdr-logo" onError={(e) => {
+              const img = e.currentTarget;
+              img.style.display = "none";
+              const fb = img.nextElementSibling as HTMLElement | null;
+              if (fb) fb.style.display = "block";
+            }} />
+            <span className="hdr-logo-fallback" style={{ display: "none" }}>STARPHONE</span>
+            <div className="hdr-right">
+              <div className="hdr-kind">Auftragsbestätigung</div>
+              <div className="hdr-nr">{repair.auftragsnummer}</div>
+              <div className="hdr-date">{fmtDate(repair.annahme_datum)}</div>
+            </div>
+          </div>
+
+          {/* 2. Separator */}
+          <hr className="hr" />
+
+          {/* 4. Two-column info */}
+          <div className="info-row">
+            <span>
+              {repair.mitarbeiter_name
+                ? <>Mitarbeiter: <strong>{repair.mitarbeiter_name}</strong>{repair.fach_nummer != null ? ` · Fach ${repair.fach_nummer}` : ""}</>
+                : "—"}
+            </span>
+            <span>Datum: {fmtDate(repair.annahme_datum)}</span>
+          </div>
+
+          <hr className="hr" />
+
+          {/* 6. KUNDE */}
+          <div className="sec">Kunde</div>
+          <div className="k-name">{kundenName}</div>
+          {(telefon || email) && (
+            <div className="k-contact">
+              {telefon && <>{telefon}</>}
+              {telefon && email && <> · </>}
+              {email && <>{email}</>}
             </div>
           )}
 
-          {/* ── HEADER ── */}
-          <div className="receipt-header">
-            <div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/logo.png" alt="Starphone" className="logo-img" />
-              <div className="shop-info">
-                Blondelstr. 10, 52062 Aachen<br />
-                Tel: 0241 401 37 37<br />
-                WhatsApp: 0241 401 37 37
-              </div>
-            </div>
-            <div className="header-right">
-              <div className="doc-type">Auftragsbestätigung</div>
-              <div className="auftragsnr">{repair.auftragsnummer}</div>
-              <div className="datum">{formatDateShort(repair.annahme_datum)}</div>
-            </div>
-          </div>
+          <hr className="hr" />
 
-          <hr className="divider" />
-
-          {/* ── AUFTRAG ── */}
-          <div className="sec-title">Auftrag</div>
-          <div className="info-line">
-            {repair.mitarbeiter_name && (
-              <>Mitarbeiter: {repair.mitarbeiter_name}{repair.fach_nummer != null ? ` · Fach ${repair.fach_nummer}` : ""}<br /></>
-            )}
-            Abgabedatum: {formatDateShort(repair.annahme_datum)}
-          </div>
-
-          <hr className="divider" />
-
-          {/* ── GERÄT ── */}
-          <div className="sec-title">Gerät</div>
-          <div className="geraet-line">
+          {/* 8. GERÄT */}
+          <div className="sec">Gerät</div>
+          <div className="g-name">
             {repair.hersteller} {repair.modell}
             {repair.geraetetyp ? ` (${repair.geraetetyp})` : ""}
           </div>
-          {repair.imei && <div className="geraet-detail">IMEI/S/N: {repair.imei}</div>}
-          {repair.geraete_code && <div className="geraet-detail">PIN: {repair.geraete_code}</div>}
-
-          <hr className="divider" />
-
-          {/* ── SCHADENSBESCHREIBUNG ── */}
-          <div className="sec-title">Schadensbeschreibung</div>
-          <div className="problem-text">{repair.reparatur_problem}</div>
-
-          {(repair.geraet_startet || repair.daten_wichtig) && (
-            <div className="status-row">
-              {repair.geraet_startet && (
-                <div className="status-item">
-                  <span className="status-label">Gerät startet:</span>
-                  <span className={`status-badge ${repair.geraet_startet === "ja" ? "ja" : "nein"}`}>
-                    {repair.geraet_startet === "ja" ? "JA" : "NEIN"}
-                  </span>
-                </div>
-              )}
-              {repair.daten_wichtig && (
-                <div className="status-item">
-                  <span className="status-label">Daten wichtig:</span>
-                  <span className={`status-badge ${repair.daten_wichtig === "ja" ? "ja" : "nein"}`}>
-                    {repair.daten_wichtig === "ja" ? "JA" : "NEIN"}
-                  </span>
-                </div>
-              )}
+          {(repair.imei || repair.geraete_code) && (
+            <div className="g-ids">
+              {repair.imei && <>IMEI: {repair.imei}</>}
+              {repair.imei && repair.geraete_code && <> · </>}
+              {repair.geraete_code && <>PIN: {repair.geraete_code}</>}
             </div>
           )}
 
-          {repair.internal_note && <div className="kunde-notiz">{repair.internal_note}</div>}
+          <hr className="hr" />
 
-          {/* ── ZUSATZVERKÄUFE ── */}
+          {/* 10. SCHADEN */}
+          <div className="sec">Schaden</div>
+          <div className="s-text">{repair.reparatur_problem}</div>
+          {hasStatus && (
+            <div className="s-status">
+              {startet && (
+                <>Gerät startet: <span className={`badge ${startet === "ja" ? "ja" : "nein"}`}>{startet === "ja" ? "JA" : "NEIN"}</span></>
+              )}
+              {startet && dwichtig && <> · </>}
+              {dwichtig && (
+                <>Daten wichtig: <span className={`badge ${dwichtig === "ja" ? "ja" : "nein"}`}>{dwichtig === "ja" ? "JA" : "NEIN"}</span></>
+              )}
+            </div>
+          )}
+          {repair.internal_note && <div className="note">{repair.internal_note}</div>}
+          {repair.ist_reklamation && (
+            <div className="rekl">
+              <span className="rekl-label">REKLAMATION</span>
+              {repair.reklamation_bezug && <span className="rekl-bezug">{repair.reklamation_bezug}</span>}
+            </div>
+          )}
+
+          {/* 13. ZUSATZVERKÄUFE */}
           {hasZusatz && (
             <>
-              <hr className="divider" />
-              <div className="sec-title">Zusatzverkäufe</div>
-              <table className="zusatz-table">
-                <tbody>
-                  {zusatzItems.map((item, i) => (
-                    <tr key={i}>
-                      <td>{item.label} {item.variante}</td>
-                      <td>{formatPrice(item.preis)}&euro;</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <hr className="hr" />
+              <div className="sec">Zusatzverkäufe</div>
+              {zusatzItems.map((item, i) => (
+                <div className="zv-row" key={i}>
+                  <span className="zv-name">{item.label} {item.variante}</span>
+                  <span>{fmtPrice(item.preis)}</span>
+                </div>
+              ))}
             </>
           )}
 
-          <hr className="divider" />
+          <hr className="hr" />
 
-          {/* ── PREISÜBERSICHT ── */}
-          <div className="sec-title">Preisübersicht</div>
-          <table className="preis-table">
-            <tbody>
-              <tr>
-                <td>Reparaturpreis:</td>
-                <td>{hasPreis ? `${formatPrice(reparaturPreis)}\u00A0\u20AC` : "Wird mitgeteilt"}</td>
-              </tr>
-              {hasZusatz && (
-                <tr>
-                  <td>Zusatzverkäufe:</td>
-                  <td>{formatPrice(zusatzGesamt)}&nbsp;&euro;</td>
-                </tr>
-              )}
-              {(hasPreis || hasZusatz) && (
-                <tr className="preis-total">
-                  <td style={{ paddingTop: "2mm" }}>Gesamt:</td>
-                  <td style={{ paddingTop: "2mm" }}>{formatPrice(total)}&nbsp;&euro;</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {/* 15. PREISÜBERSICHT */}
+          <div className="sec">Preisübersicht</div>
+          <div className="p-row">
+            <span className="p-lbl">Reparatur</span>
+            <span className="p-val">
+              {hasPreis ? fmtPrice(reparaturPreis) : <em style={{ color: "#888", fontStyle: "italic" }}>Wird nach Diagnose mitgeteilt</em>}
+            </span>
+          </div>
+          {hasZusatz && (
+            <div className="p-row">
+              <span className="p-lbl">Zusatz</span>
+              <span className="p-val">{fmtPrice(zusatzGesamt)}</span>
+            </div>
+          )}
+          {(hasPreis || hasZusatz) && (
+            <div className="p-total">
+              <span>Gesamt</span>
+              <span>{fmtPrice(total)}</span>
+            </div>
+          )}
+          <div className="p-disclaimer">
+            * Preise können sich nach Diagnose ändern. Wir halten vor Reparaturbeginn Rücksprache.
+          </div>
 
-          {/* ── UNTERSCHRIFT ── */}
+          {/* 18. UNTERSCHRIFT */}
           {repair.unterschrift && (
             <>
-              <hr className="divider" />
-              <div className="sig-section">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={repair.unterschrift} alt="Unterschrift" className="sig-img" />
-                <div className="sig-label">Unterschrift Kunde</div>
-              </div>
+              <hr className="hr" />
+              <div className="sec">Unterschrift</div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={repair.unterschrift} alt="Unterschrift" className="sig-img" />
+              <div className="sig-line">Unterschrift Kunde</div>
             </>
           )}
 
-          <hr className="divider" />
-
-          {/* ── FOOTER ── */}
-          <div className="receipt-footer">
-            <div className="footer-msg">Wir melden uns sobald Ihr Gerät fertig ist.</div>
-            <div className="qr-wrap">
-              <QRCanvas url={agbUrl} size={70} />
-              <div className="qr-label">Scannen für AGB &amp; Datenschutz</div>
-            </div>
+          {/* 19. FOOTER */}
+          <div className="footer">
+            Starphone · Blondelstr. 10 · 52062 Aachen · 0241 401 37 37 · starphone.de
           </div>
         </div>
       </div>

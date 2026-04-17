@@ -44,19 +44,19 @@ type Repair = {
   } | null;
 };
 
-function fmt(n: number) {
-  return n.toFixed(2).replace(".", ",");
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("de-DE", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
 }
 
+function fmtPrice(n: number) {
+  return n.toFixed(2).replace(".", ",") + " €";
+}
+
 export default function LabelClient({ repair }: { repair: Repair }) {
   const kundenName = repair.customers
-    ? `${repair.customers.first_name ?? ""} ${repair.customers.last_name ?? ""}`.trim()
+    ? `${repair.customers.first_name ?? ""} ${repair.customers.last_name ?? ""}`.trim() || repair.kunden_name
     : repair.kunden_name;
   const telefon = repair.customers?.phone ?? repair.kunden_telefon;
   const email = repair.customers?.email ?? repair.kunden_email;
@@ -68,9 +68,13 @@ export default function LabelClient({ repair }: { repair: Repair }) {
   const hasZusatz = zusatzItems.length > 0;
   const total = (hasPreis ? reparaturPreis : 0) + zusatzGesamt;
 
+  const startet = repair.geraet_startet;
+  const dwichtig = repair.daten_wichtig;
+  const hasStatus = !!startet || !!dwichtig;
+
   useEffect(() => {
-    const timer = setTimeout(() => window.print(), 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => window.print(), 300);
+    return () => clearTimeout(t);
   }, []);
 
   return (
@@ -80,8 +84,8 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         html, body {
           background: #f0f0f0;
           font-family: Arial, sans-serif;
-          font-size: 13px;
-          line-height: 1.3;
+          font-size: 11px;
+          line-height: 1.4;
           color: #000;
           margin: 0;
           padding: 0;
@@ -102,102 +106,100 @@ export default function LabelClient({ repair }: { repair: Repair }) {
 
         .page-wrap { display: flex; justify-content: center; padding: 24px 16px; }
 
-        .label {
+        .doc {
           width: 148mm;
           background: white;
-          padding: 8mm;
-          padding-top: 0;
+          padding: 6mm 8mm;
           box-shadow: 0 2px 16px rgba(0,0,0,0.12);
           font-family: Arial, sans-serif;
-          font-size: 13px;
-          line-height: 1.3;
-        }
-        .label > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
-
-        .label-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          margin-top: 0;
-          margin-bottom: 2mm;
-        }
-        .logo-img { height: 32px; width: auto; object-fit: contain; display: block; }
-        .aufnr { font-family: "Courier New", monospace; font-size: 18px; font-weight: 700; }
-
-        .meta { font-size: 12px; color: #333; margin-bottom: 2mm; line-height: 1.4; }
-
-        .hr { border: none; border-top: 0.5px solid #bbb; margin: 3mm 0; }
-
-        .sec { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 1.5mm; }
-        .sec-big { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #666; margin-bottom: 1.5mm; }
-
-        .name { font-size: 18px; font-weight: 700; margin-bottom: 0.5mm; line-height: 1.15; }
-        .detail { font-size: 14px; color: #222; line-height: 1.3; margin-bottom: 0.5mm; }
-        .mono { font-family: "Courier New", monospace; }
-
-        /* GERÄT + SCHADEN – same prominent style */
-        .geraet-text,
-        .schaden-text {
-          font-size: 24px;
-          font-weight: 900;
+          font-size: 11px;
+          line-height: 1.4;
           color: #000;
-          border-bottom: 1px solid #000;
-          padding-bottom: 2mm;
-          margin-bottom: 2mm;
-          line-height: 1.1;
-          letter-spacing: -0.01em;
-          white-space: pre-wrap;
         }
-        .geraet-imei {
-          font-family: "Courier New", monospace;
-          font-size: 13px;
-          font-weight: 600;
-          color: #000;
-          margin-top: 1mm;
+        .doc > *:first-child { margin-top: 0; }
+
+        /* Header */
+        .hdr { display: flex; justify-content: space-between; align-items: center; gap: 6mm; }
+        .hdr-logo { height: 28px; width: auto; object-fit: contain; display: block; }
+        .hdr-logo-fallback { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; color: #000; }
+        .hdr-nr { font-size: 15px; font-weight: 700; font-family: "Courier New", monospace; }
+
+        .hdr-meta { font-size: 10px; color: #555; margin-top: 1mm; }
+
+        .hr { border: none; border-top: 0.5px solid #d4d4d4; margin: 3mm 0; }
+
+        .sec { font-size: 8px; font-weight: 700; letter-spacing: 0.14em; color: #999; text-transform: uppercase; margin-bottom: 1mm; }
+
+        /* Kunde */
+        .k-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+        .k-contact { font-size: 11px; color: #555; margin-top: 0.5mm; }
+
+        /* Gerät – prominent */
+        .g-name { font-size: 18px; font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; }
+        .g-ids { font-size: 11px; color: #333; font-family: "Courier New", monospace; margin-top: 1mm; }
+
+        /* Schaden – second most prominent */
+        .s-text { font-size: 16px; font-weight: 700; line-height: 1.25; white-space: pre-wrap; }
+        .s-status { font-size: 11px; color: #333; margin-top: 1.5mm; }
+        .badge { display: inline-block; padding: 0.2mm 1.8mm; border-radius: 0.8mm; font-weight: 700; font-size: 10px; vertical-align: baseline; }
+        .badge.ja { background: #d1fae5; color: #065f46; }
+        .badge.nein { background: #fee2e2; color: #991b1b; }
+
+        .note {
+          font-size: 10px;
+          color: #444;
+          font-style: italic;
+          margin-top: 1.5mm;
+          padding: 1.2mm 2mm;
+          border-left: 2px solid #999;
+          background: #fafafa;
+          line-height: 1.35;
         }
-        .int-note { font-size: 11px; color: #666; font-style: italic; margin-top: 1.5mm; }
 
-        .status-row { display: flex; gap: 5mm; margin: 2mm 0; font-size: 13px; }
-        .status-item { display: flex; gap: 2mm; align-items: center; }
-        .status-label { font-weight: 600; color: #333; }
-        .status-badge { display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; font-weight: 700; font-size: 12px; }
-        .status-badge.ja { background: #d1fae5; color: #065f46; }
-        .status-badge.nein { background: #fee2e2; color: #991b1b; }
-
-        .reklamation-banner {
-          background: #f59e0b;
-          color: #000;
-          padding: 2mm 3mm;
-          margin: 0 0 2mm 0;
-          font-size: 16px;
-          font-weight: 900;
-          border-radius: 2mm;
-          letter-spacing: 0.02em;
+        /* Reklamation badge */
+        .rekl {
+          display: inline-flex;
+          align-items: center;
+          gap: 1.5mm;
+          background: #fef3c7;
+          color: #78350f;
+          padding: 0.8mm 2mm;
+          border-radius: 0.8mm;
+          font-size: 10px;
+          font-weight: 700;
+          border: 0.5px solid #f59e0b;
+          margin-bottom: 2.5mm;
         }
-        .reklamation-banner .bezug { font-family: "Courier New", monospace; font-size: 14px; margin-left: 2mm; }
+        .rekl-bezug { font-family: "Courier New", monospace; font-weight: 600; }
 
-        .kunde-notiz { font-size: 13px; color: #222; line-height: 1.3; margin-top: 1.5mm; padding: 1.5mm 2.5mm; background: #f9fafb; border-left: 2px solid #000; }
-
-        .price-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 1.5mm; line-height: 1.3; }
-        .price-total { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; padding-top: 2mm; margin-top: 1.5mm; border-top: 2px solid #000; line-height: 1.15; }
+        /* Prices */
+        .zv-row { display: flex; justify-content: space-between; font-size: 11px; padding: 0.4mm 0; }
+        .zv-row .zv-name { color: #333; }
+        .p-row { display: flex; justify-content: space-between; font-size: 11px; padding: 0.5mm 0; }
+        .p-row .p-lbl { color: #444; }
+        .p-total {
+          display: flex; justify-content: space-between; align-items: baseline;
+          font-size: 16px; font-weight: 700;
+          border-top: 1px solid #000;
+          padding-top: 1.5mm; margin-top: 1mm;
+        }
 
         @media print {
           html, body {
             background: white;
-            width: 148mm;
             font-family: Arial, sans-serif;
-            font-size: 13px;
-            line-height: 1.3;
-            margin: 0 !important;
-            padding: 0 !important;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 0;
           }
           img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
           .page-wrap { padding: 0; margin: 0; }
-          .label { box-shadow: none; padding: 0; margin: 0; width: 100%; }
-          .label > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
-          .geraet-text, .schaden-text { font-size: 24px; font-weight: 900; color: #000 !important; }
-          @page { size: A5; margin: 5mm 8mm 8mm 8mm; }
+          .doc { box-shadow: none; padding: 0; margin: 0; width: 100%; }
+          .sec, .hr, .p-total, .rekl, .g-name, .s-text { page-break-inside: avoid; }
+          @page { size: A5; margin: 6mm 8mm; }
         }
       `}</style>
 
@@ -207,116 +209,107 @@ export default function LabelClient({ repair }: { repair: Repair }) {
       </div>
 
       <div className="page-wrap">
-        <div className="label">
-          {/* Reklamation – oben, prominent */}
+        <div className="doc">
+
+          {/* 1. HEADER */}
+          <div className="hdr">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/logo.png" alt="Starphone" className="hdr-logo" onError={(e) => {
+              const img = e.currentTarget;
+              img.style.display = "none";
+              const fb = img.nextElementSibling as HTMLElement | null;
+              if (fb) fb.style.display = "block";
+            }} />
+            <span className="hdr-logo-fallback" style={{ display: "none" }}>STARPHONE</span>
+            <span className="hdr-nr">{repair.auftragsnummer}</span>
+          </div>
+          <div className="hdr-meta">
+            {fmtDate(repair.annahme_datum)}
+            {repair.mitarbeiter_name && <> · {repair.mitarbeiter_name}</>}
+            {repair.fach_nummer != null && <> · Fach {repair.fach_nummer}</>}
+          </div>
+
+          <hr className="hr" />
+
+          {/* 2. REKLAMATION badge */}
           {repair.ist_reklamation && (
-            <div className="reklamation-banner">
-              REKLAMATION
-              {repair.reklamation_bezug && <span className="bezug">{repair.reklamation_bezug}</span>}
+            <div className="rekl">
+              <span>REKLAMATION</span>
+              {repair.reklamation_bezug && <span className="rekl-bezug">{repair.reklamation_bezug}</span>}
             </div>
           )}
 
-          {/* Header */}
-          <div className="label-header">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/logo.png" alt="Starphone" className="logo-img" />
-            <span className="aufnr">{repair.auftragsnummer}</span>
-          </div>
-          <div className="meta">
-            Datum: {fmtDate(repair.annahme_datum)}
-            {repair.mitarbeiter_name && (
-              <>{" · "}Mitarbeiter: {repair.mitarbeiter_name}</>
-            )}
-            {repair.fach_nummer != null && (
-              <>{" · "}Fach {repair.fach_nummer}</>
-            )}
-          </div>
-
-          <hr className="hr" />
-
-          {/* Kunde */}
+          {/* 3. KUNDE */}
           <div className="sec">Kunde</div>
-          <div className="name">{kundenName}</div>
-          {telefon && <div className="detail">Tel: {telefon}</div>}
-          {email && <div className="detail">Email: {email}</div>}
+          <div className="k-name">{kundenName}</div>
+          {(telefon || email) && (
+            <div className="k-contact">
+              {telefon && <>{telefon}</>}
+              {telefon && email && <> · </>}
+              {email && <>{email}</>}
+            </div>
+          )}
 
           <hr className="hr" />
 
-          {/* Gerät */}
-          <div className="sec-big">Gerät</div>
-          <div className="geraet-text">
+          {/* 4. GERÄT – biggest */}
+          <div className="sec">Gerät</div>
+          <div className="g-name">
             {repair.hersteller} {repair.modell}
             {repair.geraetetyp ? ` (${repair.geraetetyp})` : ""}
           </div>
-          {repair.imei && <div className="geraet-imei">IMEI: {repair.imei}</div>}
-          {repair.geraete_code && <div className="geraet-imei">PIN: {repair.geraete_code}</div>}
-
-          {/* Schaden – same style as Gerät */}
-          <div className="sec-big" style={{ marginTop: "3mm" }}>Schaden</div>
-          <div className="schaden-text">{repair.reparatur_problem}</div>
-
-          {/* Status pills */}
-          {(repair.geraet_startet || repair.daten_wichtig) && (
-            <div className="status-row">
-              {repair.geraet_startet && (
-                <div className="status-item">
-                  <span className="status-label">Gerät startet:</span>
-                  <span className={`status-badge ${repair.geraet_startet === "ja" ? "ja" : "nein"}`}>
-                    {repair.geraet_startet === "ja" ? "JA" : "NEIN"}
-                  </span>
-                </div>
-              )}
-              {repair.daten_wichtig && (
-                <div className="status-item">
-                  <span className="status-label">Daten wichtig:</span>
-                  <span className={`status-badge ${repair.daten_wichtig === "ja" ? "ja" : "nein"}`}>
-                    {repair.daten_wichtig === "ja" ? "JA" : "NEIN"}
-                  </span>
-                </div>
-              )}
+          {(repair.imei || repair.geraete_code) && (
+            <div className="g-ids">
+              {repair.imei && <>IMEI: {repair.imei}</>}
+              {repair.imei && repair.geraete_code && <> · </>}
+              {repair.geraete_code && <>PIN: {repair.geraete_code}</>}
             </div>
           )}
 
-          {repair.internal_note && <div className="kunde-notiz">{repair.internal_note}</div>}
+          <hr className="hr" />
 
-          {/* Zusatzverkäufe */}
-          {hasZusatz && (
+          {/* 5. SCHADEN */}
+          <div className="sec">Schaden</div>
+          <div className="s-text">{repair.reparatur_problem}</div>
+          {hasStatus && (
+            <div className="s-status">
+              {startet && (
+                <>Gerät startet: <span className={`badge ${startet === "ja" ? "ja" : "nein"}`}>{startet === "ja" ? "JA" : "NEIN"}</span></>
+              )}
+              {startet && dwichtig && <> · </>}
+              {dwichtig && (
+                <>Daten wichtig: <span className={`badge ${dwichtig === "ja" ? "ja" : "nein"}`}>{dwichtig === "ja" ? "JA" : "NEIN"}</span></>
+              )}
+            </div>
+          )}
+          {repair.internal_note && <div className="note">{repair.internal_note}</div>}
+
+          {/* 6. ZUSATZVERKÄUFE + PREISE */}
+          {(hasZusatz || hasPreis) && (
             <>
               <hr className="hr" />
-              <div className="sec">Zusatzverkäufe</div>
+              <div className="sec">Preise</div>
+              {hasPreis && (
+                <div className="p-row">
+                  <span className="p-lbl">Reparatur</span>
+                  <span>{fmtPrice(reparaturPreis)}</span>
+                </div>
+              )}
               {zusatzItems.map((item, i) => (
-                <div className="price-row" key={i}>
-                  <span>{item.label} {item.variante}</span>
-                  <span>{fmt(item.preis)} &euro;</span>
+                <div className="zv-row" key={i}>
+                  <span className="zv-name">{item.label} {item.variante}</span>
+                  <span>{fmtPrice(item.preis)}</span>
                 </div>
               ))}
+              {total > 0 && (
+                <div className="p-total">
+                  <span>GESAMT</span>
+                  <span>{fmtPrice(total)}</span>
+                </div>
+              )}
             </>
           )}
 
-          {/* Preise */}
-          {(hasPreis || hasZusatz) && (
-            <>
-              <hr className="hr" />
-              {hasPreis && (
-                <div className="price-row">
-                  <span>Reparatur:</span>
-                  <span>{fmt(reparaturPreis)} &euro;</span>
-                </div>
-              )}
-              {hasZusatz && (
-                <div className="price-row">
-                  <span>Zusatz:</span>
-                  <span>{fmt(zusatzGesamt)} &euro;</span>
-                </div>
-              )}
-              {total > 0 && (
-                <div className="price-total">
-                  <span>GESAMT:</span>
-                  <span>{fmt(total)} &euro;</span>
-                </div>
-              )}
-            </>
-          )}
         </div>
       </div>
     </>
