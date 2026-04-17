@@ -92,8 +92,8 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
         html, body {
           background: #f0f0f0;
           font-family: Arial, sans-serif;
-          font-size: 10px;
-          line-height: 1.4;
+          font-size: 9.5px;
+          line-height: 1.35;
           color: #000;
           margin: 0;
           padding: 0;
@@ -114,59 +114,60 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
 
         .page-wrap { display: flex; justify-content: center; padding: 24px 16px; }
 
-        .doc {
+        .print-container {
           width: 148mm;
           background: white;
           padding: 6mm 8mm;
           box-shadow: 0 2px 16px rgba(0,0,0,0.12);
           font-family: Arial, sans-serif;
-          font-size: 10px;
-          line-height: 1.4;
+          font-size: 9.5px;
+          line-height: 1.35;
           color: #000;
+          box-sizing: border-box;
         }
-        .doc > *:first-child { margin-top: 0; }
+        .print-container > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
 
         /* Header */
         .hdr { display: flex; justify-content: space-between; align-items: center; gap: 6mm; }
-        .hdr-logo { height: 28px; width: auto; object-fit: contain; display: block; }
-        .hdr-logo-fallback { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; color: #000; }
-        .hdr-right { text-align: right; line-height: 1.25; }
-        .hdr-kind { font-size: 8px; font-weight: 600; letter-spacing: 0.12em; color: #888; text-transform: uppercase; }
-        .hdr-nr { font-size: 13px; font-weight: 700; font-family: "Courier New", monospace; margin-top: 0.5mm; }
-        .hdr-date { font-size: 9px; color: #666; margin-top: 0.5mm; }
+        .hdr-logo { height: 26px; width: auto; object-fit: contain; display: block; }
+        .hdr-logo-fallback { font-size: 14px; font-weight: 800; letter-spacing: 0.04em; color: #000; }
+        .hdr-right { text-align: right; line-height: 1.2; }
+        .hdr-kind { font-size: 7.5px; font-weight: 600; letter-spacing: 0.12em; color: #888; text-transform: uppercase; }
+        .hdr-nr { font-size: 12px; font-weight: 700; font-family: "Courier New", monospace; margin-top: 0.3mm; }
+        .hdr-date { font-size: 8.5px; color: #666; margin-top: 0.3mm; }
 
-        .hr { border: none; border-top: 0.5px solid #d4d4d4; margin: 3mm 0; }
+        .hr { border: none; border-top: 0.5px solid #e5e5e5; margin: 3mm 0; }
 
         /* Two col info */
-        .info-row { display: flex; justify-content: space-between; font-size: 10px; color: #333; }
+        .info-row { display: flex; justify-content: space-between; font-size: 9.5px; color: #333; }
 
         /* Section label */
-        .sec { font-size: 8px; font-weight: 700; letter-spacing: 0.14em; color: #999; text-transform: uppercase; margin-bottom: 1mm; }
+        .sec { font-size: 7.5px; font-weight: 700; letter-spacing: 0.14em; color: #999; text-transform: uppercase; margin-bottom: 0.8mm; }
 
         /* Kunde */
-        .k-name { font-size: 12px; font-weight: 700; line-height: 1.2; }
-        .k-contact { font-size: 10px; color: #555; margin-top: 0.5mm; }
+        .k-name { font-size: 11px; font-weight: 700; line-height: 1.2; }
+        .k-contact { font-size: 9.5px; color: #555; margin-top: 0.3mm; }
 
         /* Gerät */
-        .g-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
-        .g-ids { font-size: 10px; color: #555; font-family: "Courier New", monospace; margin-top: 0.5mm; }
+        .g-name { font-size: 12px; font-weight: 700; line-height: 1.2; }
+        .g-ids { font-size: 9.5px; color: #555; font-family: "Courier New", monospace; margin-top: 0.3mm; }
 
         /* Schaden */
-        .s-text { font-size: 11px; line-height: 1.4; white-space: pre-wrap; }
-        .s-status { font-size: 10px; color: #333; margin-top: 1.5mm; }
-        .badge { display: inline-block; padding: 0 1.5mm; border-radius: 0.8mm; font-weight: 700; font-size: 9.5px; vertical-align: baseline; }
+        .s-text { font-size: 10.5px; line-height: 1.35; white-space: pre-wrap; }
+        .s-status { font-size: 9.5px; color: #333; margin-top: 1mm; }
+        .badge { display: inline-block; padding: 0 1.5mm; border-radius: 0.8mm; font-weight: 700; font-size: 9px; vertical-align: baseline; }
         .badge.ja { background: #d1fae5; color: #065f46; }
         .badge.nein { background: #fee2e2; color: #991b1b; }
 
         .note {
-          font-size: 9.5px;
+          font-size: 9px;
           color: #555;
           font-style: italic;
-          margin-top: 1.5mm;
-          padding: 1.2mm 2mm;
+          margin-top: 1mm;
+          padding: 1mm 1.5mm;
           border-left: 2px solid #999;
           background: #fafafa;
-          line-height: 1.35;
+          line-height: 1.3;
         }
 
         /* Reklamation badge – inline, next to schaden */
@@ -176,63 +177,71 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
           gap: 1.5mm;
           background: #fef3c7;
           color: #78350f;
-          padding: 0.8mm 2mm;
+          padding: 0.6mm 1.8mm;
           border-radius: 0.8mm;
-          font-size: 9.5px;
+          font-size: 9px;
           font-weight: 700;
-          margin-top: 2mm;
+          margin-top: 1.5mm;
           border: 0.5px solid #f59e0b;
         }
         .rekl-label { letter-spacing: 0.06em; }
         .rekl-bezug { font-family: "Courier New", monospace; font-weight: 600; }
 
         /* Zusatzverkäufe */
-        .zv-row { display: flex; justify-content: space-between; font-size: 10px; padding: 0.5mm 0; }
+        .zv-row { display: flex; justify-content: space-between; font-size: 9.5px; padding: 0.3mm 0; }
         .zv-row .zv-name { color: #333; }
 
         /* Preise */
-        .p-row { display: flex; justify-content: space-between; font-size: 10.5px; padding: 0.6mm 0; }
+        .p-row { display: flex; justify-content: space-between; font-size: 10px; padding: 0.4mm 0; }
         .p-row .p-lbl { color: #444; }
         .p-row .p-val { font-variant-numeric: tabular-nums; }
         .p-total {
           display: flex; justify-content: space-between; align-items: baseline;
-          font-size: 14px; font-weight: 700;
+          font-size: 13px; font-weight: 700;
           border-top: 1px solid #000;
-          padding-top: 1.5mm; margin-top: 1mm;
+          padding-top: 1.2mm; margin-top: 0.8mm;
         }
-        .p-disclaimer { font-size: 9px; color: #888; font-style: italic; margin-top: 1.5mm; line-height: 1.4; }
+        .p-disclaimer { font-size: 8.5px; color: #888; font-style: italic; margin-top: 1mm; line-height: 1.35; }
 
         /* Unterschrift */
-        .sig-img { max-height: 25mm; width: auto; display: block; }
-        .sig-line { width: 70mm; border-top: 0.5px solid #000; margin-top: 0.5mm; padding-top: 0.8mm; font-size: 9px; color: #666; }
+        .sig-img { max-height: 20mm; width: auto; display: block; }
+        .sig-line { width: 60mm; border-top: 0.5px solid #000; margin-top: 0.4mm; padding-top: 0.6mm; font-size: 8.5px; color: #666; }
 
         /* Footer */
         .footer {
-          margin-top: 4mm;
-          padding-top: 2mm;
-          border-top: 0.5px solid #d4d4d4;
+          margin-top: 3mm;
+          padding-top: 1.5mm;
+          border-top: 0.5px solid #e5e5e5;
           text-align: center;
-          font-size: 8px;
+          font-size: 7.5px;
           color: #888;
           letter-spacing: 0.02em;
         }
 
         @media print {
+          @page { size: A5; margin: 0mm; }
           html, body {
-            background: white;
+            background: white !important;
             font-family: Arial, sans-serif;
-            font-size: 10px;
-            line-height: 1.4;
+            font-size: 9.5px;
+            line-height: 1.35;
             color: #000;
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
           }
+          body::before, body::after { display: none !important; }
           img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
-          .page-wrap { padding: 0; margin: 0; }
-          .doc { box-shadow: none; padding: 0; margin: 0; width: 100%; }
+          .page-wrap { padding: 0 !important; margin: 0 !important; display: block; }
+          .print-container {
+            box-shadow: none;
+            padding: 6mm 8mm;
+            margin: 0;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .print-container > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
           .sec, .hr, .p-total, .footer, .sig-img, .rekl { page-break-inside: avoid; }
-          @page { size: A5; margin: 6mm 8mm; }
         }
       `}</style>
 
@@ -242,7 +251,7 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
       </div>
 
       <div className="page-wrap">
-        <div className="doc">
+        <div className="print-container">
 
           {/* 1. HEADER */}
           <div className="hdr">
