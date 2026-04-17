@@ -19,6 +19,7 @@ export default async function LabelPage({
       kunden_name, kunden_telefon, kunden_email, kunden_adresse,
       mitarbeiter_name, fach_nummer,
       reparatur_preis, zusatzverkauf_items, zusatzverkauf_gesamt,
+      geraet_startet, daten_wichtig, ist_reklamation, reklamation_bezug,
       customers(id, customer_code, first_name, last_name, phone, email, address)
     `)
     .eq("id", id)

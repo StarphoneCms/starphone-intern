@@ -174,6 +174,46 @@ export default async function RepairDetailPage({
             <SectionCard title="Auftrag">
               <DataRow label="Problem"       value={repair.reparatur_problem} />
               <DataRow label="Gerätetyp"     value={repair.geraetetyp} />
+              {repair.internal_note && (
+                <DataRow label="Notiz" value={repair.internal_note} />
+              )}
+              {repair.geraet_startet && (
+                <div className="flex items-start px-4 py-2.5 border-b border-gray-50 last:border-0">
+                  <span className="w-32 shrink-0 text-[11.5px] text-gray-400 pt-px">Gerät startet</span>
+                  <span className={[
+                    "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold",
+                    repair.geraet_startet === "ja" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700",
+                  ].join(" ")}>
+                    {repair.geraet_startet === "ja" ? "Ja" : "Nein"}
+                  </span>
+                </div>
+              )}
+              {repair.daten_wichtig && (
+                <div className="flex items-start px-4 py-2.5 border-b border-gray-50 last:border-0">
+                  <span className="w-32 shrink-0 text-[11.5px] text-gray-400 pt-px">Daten wichtig</span>
+                  <span className={[
+                    "inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold",
+                    repair.daten_wichtig === "ja" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700",
+                  ].join(" ")}>
+                    {repair.daten_wichtig === "ja" ? "Ja" : "Nein"}
+                  </span>
+                </div>
+              )}
+              {repair.ist_reklamation && (
+                <div className="flex items-start px-4 py-2.5 border-b border-gray-50 last:border-0">
+                  <span className="w-32 shrink-0 text-[11.5px] text-gray-400 pt-px">Reklamation</span>
+                  <span className="flex-1 flex items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 text-amber-800">
+                      REKLAMATION
+                    </span>
+                    {repair.reklamation_bezug && (
+                      <span className="text-[12.5px] text-gray-900 font-mono">
+                        {repair.reklamation_bezug}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
               {!repair.reparatur_problem && (
                 <p className="px-4 py-3 text-[11.5px] text-gray-300">Keine Details hinterlegt.</p>
               )}

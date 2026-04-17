@@ -30,6 +30,11 @@ type Repair = {
   reparatur_preis?: number | null;
   zusatzverkauf_items?: string | ZusatzItem[] | null;
   zusatzverkauf_gesamt?: number | null;
+  internal_note?: string | null;
+  geraet_startet?: string | null;
+  daten_wichtig?: string | null;
+  ist_reklamation?: boolean | null;
+  reklamation_bezug?: string | null;
   unterschrift?: string | null;
   customers?: {
     id: string;
@@ -207,6 +212,42 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
           white-space: pre-wrap;
         }
 
+        /* Status pills */
+        .status-row { display: flex; gap: 5mm; margin-top: 2mm; font-size: 10px; flex-wrap: wrap; }
+        .status-item { display: flex; gap: 1.5mm; align-items: center; }
+        .status-label { color: #555; }
+        .status-badge {
+          display: inline-block;
+          padding: 0.3mm 2mm;
+          border-radius: 1mm;
+          font-weight: 700;
+          font-size: 10px;
+        }
+        .status-badge.ja { background: #d1fae5; color: #065f46; }
+        .status-badge.nein { background: #fee2e2; color: #991b1b; }
+
+        .reklamation-banner {
+          background: #f59e0b;
+          color: #000;
+          padding: 2.5mm 3mm;
+          margin-bottom: 3mm;
+          font-size: 13px;
+          font-weight: 900;
+          border-radius: 1.5mm;
+          letter-spacing: 0.02em;
+        }
+        .reklamation-banner .bezug { font-family: "Courier New", monospace; font-size: 12px; margin-left: 2mm; }
+
+        .kunde-notiz {
+          font-size: 10px;
+          color: #222;
+          line-height: 1.5;
+          margin-top: 2mm;
+          padding: 2mm 2.5mm;
+          background: #f9fafb;
+          border-left: 1.5px solid #000;
+        }
+
         /* Zusatzverkäufe */
         .zusatz-table {
           width: 100%;
@@ -296,6 +337,14 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
 
       <div className="page-wrap">
         <div className="receipt">
+          {/* Reklamation – oben, prominent */}
+          {repair.ist_reklamation && (
+            <div className="reklamation-banner">
+              REKLAMATION
+              {repair.reklamation_bezug && <span className="bezug">{repair.reklamation_bezug}</span>}
+            </div>
+          )}
+
           {/* ── HEADER ── */}
           <div className="receipt-header">
             <div>
@@ -340,6 +389,29 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
           {/* ── SCHADENSBESCHREIBUNG ── */}
           <div className="sec-title">Schadensbeschreibung</div>
           <div className="problem-text">{repair.reparatur_problem}</div>
+
+          {(repair.geraet_startet || repair.daten_wichtig) && (
+            <div className="status-row">
+              {repair.geraet_startet && (
+                <div className="status-item">
+                  <span className="status-label">Gerät startet:</span>
+                  <span className={`status-badge ${repair.geraet_startet === "ja" ? "ja" : "nein"}`}>
+                    {repair.geraet_startet === "ja" ? "JA" : "NEIN"}
+                  </span>
+                </div>
+              )}
+              {repair.daten_wichtig && (
+                <div className="status-item">
+                  <span className="status-label">Daten wichtig:</span>
+                  <span className={`status-badge ${repair.daten_wichtig === "ja" ? "ja" : "nein"}`}>
+                    {repair.daten_wichtig === "ja" ? "JA" : "NEIN"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {repair.internal_note && <div className="kunde-notiz">{repair.internal_note}</div>}
 
           {/* ── ZUSATZVERKÄUFE ── */}
           {hasZusatz && (

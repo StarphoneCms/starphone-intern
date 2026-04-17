@@ -29,6 +29,10 @@ type Repair = {
   reparatur_preis?: number | null;
   zusatzverkauf_items?: ZusatzItem[] | null;
   zusatzverkauf_gesamt?: number | null;
+  geraet_startet?: string | null;
+  daten_wichtig?: string | null;
+  ist_reklamation?: boolean | null;
+  reklamation_bezug?: string | null;
   customers?: {
     id: string;
     customer_code: string | null;
@@ -148,6 +152,27 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         }
         .int-note { font-size: 11px; color: #666; font-style: italic; margin-top: 2mm; }
 
+        .status-row { display: flex; gap: 5mm; margin: 2mm 0; font-size: 13px; }
+        .status-item { display: flex; gap: 2mm; align-items: center; }
+        .status-label { font-weight: 600; color: #333; }
+        .status-badge { display: inline-block; padding: 0.5mm 2mm; border-radius: 1mm; font-weight: 700; font-size: 12px; }
+        .status-badge.ja { background: #d1fae5; color: #065f46; }
+        .status-badge.nein { background: #fee2e2; color: #991b1b; }
+
+        .reklamation-banner {
+          background: #f59e0b;
+          color: #000;
+          padding: 3mm 4mm;
+          margin: 3mm 0;
+          font-size: 16px;
+          font-weight: 900;
+          border-radius: 2mm;
+          letter-spacing: 0.02em;
+        }
+        .reklamation-banner .bezug { font-family: "Courier New", monospace; font-size: 14px; margin-left: 2mm; }
+
+        .kunde-notiz { font-size: 13px; color: #222; line-height: 1.5; margin-top: 2mm; padding: 2mm 3mm; background: #f9fafb; border-left: 2px solid #000; }
+
         .price-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 2mm; line-height: 1.4; }
         .price-total { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; padding-top: 3mm; margin-top: 2mm; border-top: 2px solid #000; line-height: 1.2; }
 
@@ -169,6 +194,14 @@ export default function LabelClient({ repair }: { repair: Repair }) {
 
       <div className="page-wrap">
         <div className="label">
+          {/* Reklamation – oben, prominent */}
+          {repair.ist_reklamation && (
+            <div className="reklamation-banner">
+              REKLAMATION
+              {repair.reklamation_bezug && <span className="bezug">{repair.reklamation_bezug}</span>}
+            </div>
+          )}
+
           {/* Header */}
           <div className="label-header">
             <h1 className="logo">STARPHONE</h1>
@@ -206,7 +239,30 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           {/* Schaden – same style as Gerät */}
           <div className="sec-big" style={{ marginTop: "5mm" }}>Schaden</div>
           <div className="schaden-text">{repair.reparatur_problem}</div>
-          {repair.internal_note && <div className="int-note">Intern: {repair.internal_note}</div>}
+
+          {/* Status pills */}
+          {(repair.geraet_startet || repair.daten_wichtig) && (
+            <div className="status-row">
+              {repair.geraet_startet && (
+                <div className="status-item">
+                  <span className="status-label">Gerät startet:</span>
+                  <span className={`status-badge ${repair.geraet_startet === "ja" ? "ja" : "nein"}`}>
+                    {repair.geraet_startet === "ja" ? "JA" : "NEIN"}
+                  </span>
+                </div>
+              )}
+              {repair.daten_wichtig && (
+                <div className="status-item">
+                  <span className="status-label">Daten wichtig:</span>
+                  <span className={`status-badge ${repair.daten_wichtig === "ja" ? "ja" : "nein"}`}>
+                    {repair.daten_wichtig === "ja" ? "JA" : "NEIN"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {repair.internal_note && <div className="kunde-notiz">{repair.internal_note}</div>}
 
           {/* Zusatzverkäufe */}
           {hasZusatz && (

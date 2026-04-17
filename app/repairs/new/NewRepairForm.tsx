@@ -129,7 +129,11 @@ export function NewRepairForm() {
   // State
   const [loading,      setLoading]      = useState(false);
   const [problem,      setProblem]      = useState(defaultProblem);
-  const [interneNotiz, setInterneNotiz] = useState("");  // ← Fix 3: eigener State
+  const [interneNotiz, setInterneNotiz] = useState("");
+  const [geraetStartet,    setGeraetStartet]    = useState<"ja" | "nein" | "">("");
+  const [datenWichtig,     setDatenWichtig]     = useState<"ja" | "nein" | "">("");
+  const [istReklamation,   setIstReklamation]   = useState(false);
+  const [reklamationBezug, setReklamationBezug] = useState("");
   const [hersteller,   setHersteller]   = useState(urlHersteller);
   const [modell,       setModell]       = useState(urlModell);
   const [geraetetyp,   setGeraetetyp]   = useState("Smartphone");
@@ -272,7 +276,11 @@ export function NewRepairForm() {
       formData.set("kunden_email",         kundenEmail);
       formData.set("kunden_adresse",       kundenAdresse);
       formData.set("reparatur_problem",    problem);
-      formData.set("internal_note",        interneNotiz);  // ← Fix 3
+      formData.set("internal_note",        interneNotiz);
+      formData.set("geraet_startet",       geraetStartet);
+      formData.set("daten_wichtig",        datenWichtig);
+      formData.set("ist_reklamation",      istReklamation ? "true" : "false");
+      formData.set("reklamation_bezug",    istReklamation ? reklamationBezug : "");
       formData.set("agb_akzeptiert",       "true");
       formData.set("mitarbeiter_name",     mitarbeiter);
       formData.set("fach_nummer",          fachNummer !== "" ? String(fachNummer) : "");
@@ -455,17 +463,93 @@ export function NewRepairForm() {
                       className="w-full px-3 py-2.5 text-[12.5px] rounded-lg border border-gray-200 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none" />
                   </Field>
 
-                  {/* ── Fix 3: Interne Notiz – eigenes State-gesteuertes Feld ── */}
-                  <Field label="Interne Notiz (nur für Mitarbeiter)">
+                  <Field label="Notiz (für Kunde & Werkstatt sichtbar)">
                     <textarea
                       value={interneNotiz}
                       onChange={e => setInterneNotiz(e.target.value)}
                       rows={2}
-                      placeholder="Interne Hinweise, Beobachtungen, Sonderheiten …"
-                      className="w-full px-3 py-2.5 text-[12.5px] rounded-lg border border-gray-200 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-200 bg-amber-50/30 resize-none"
+                      placeholder="Hinweise, Beobachtungen, Sonderheiten …"
+                      className="w-full px-3 py-2.5 text-[12.5px] rounded-lg border border-gray-200 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none"
                     />
-                    <p className="text-[10.5px] text-gray-400 mt-1">Diese Notiz ist für Kunden nicht sichtbar.</p>
                   </Field>
+
+                  {/* Gerät startet */}
+                  <div>
+                    <label className={labelClass}>Gerät startet</label>
+                    <div className="flex gap-1.5">
+                      {(["ja", "nein"] as const).map(v => {
+                        const selected = geraetStartet === v;
+                        const isJa = v === "ja";
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setGeraetStartet(selected ? "" : v)}
+                            className={[
+                              "h-9 px-4 rounded-lg text-[12px] font-medium border transition-colors",
+                              selected
+                                ? isJa
+                                  ? "bg-green-600 text-white border-green-600"
+                                  : "bg-red-600 text-white border-red-600"
+                                : "bg-white text-gray-600 border-gray-200 hover:border-gray-400",
+                            ].join(" ")}
+                          >
+                            {isJa ? "Ja" : "Nein"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Daten wichtig */}
+                  <div>
+                    <label className={labelClass}>Daten wichtig</label>
+                    <div className="flex gap-1.5">
+                      {(["ja", "nein"] as const).map(v => {
+                        const selected = datenWichtig === v;
+                        const isJa = v === "ja";
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setDatenWichtig(selected ? "" : v)}
+                            className={[
+                              "h-9 px-4 rounded-lg text-[12px] font-medium border transition-colors",
+                              selected
+                                ? isJa
+                                  ? "bg-green-600 text-white border-green-600"
+                                  : "bg-red-600 text-white border-red-600"
+                                : "bg-white text-gray-600 border-gray-200 hover:border-gray-400",
+                            ].join(" ")}
+                          >
+                            {isJa ? "Ja" : "Nein"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Reklamation */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={istReklamation}
+                        onChange={e => setIstReklamation(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 accent-black cursor-pointer"
+                      />
+                      <span className="text-[12.5px] text-gray-700">Ist eine Reklamation</span>
+                    </label>
+                    {istReklamation && (
+                      <input
+                        type="text"
+                        value={reklamationBezug}
+                        onChange={e => setReklamationBezug(e.target.value)}
+                        placeholder="Bezug auf Auftragsnr. / Belegnr."
+                        className={inputClass + " mt-2"}
+                      />
+                    )}
+                  </div>
                 </div>
               </SectionCard>
 
