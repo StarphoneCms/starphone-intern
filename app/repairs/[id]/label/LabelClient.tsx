@@ -81,8 +81,10 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           background: #f0f0f0;
           font-family: Arial, sans-serif;
           font-size: 13px;
-          line-height: 1.6;
+          line-height: 1.3;
           color: #000;
+          margin: 0;
+          padding: 0;
         }
         header, nav { display: none !important; }
 
@@ -104,30 +106,33 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           width: 148mm;
           background: white;
           padding: 8mm;
+          padding-top: 0;
           box-shadow: 0 2px 16px rgba(0,0,0,0.12);
           font-family: Arial, sans-serif;
           font-size: 13px;
-          line-height: 1.6;
+          line-height: 1.3;
         }
+        .label > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
 
         .label-header {
           display: flex;
           justify-content: space-between;
           align-items: baseline;
-          margin-bottom: 3mm;
+          margin-top: 0;
+          margin-bottom: 2mm;
         }
         .logo-img { height: 32px; width: auto; object-fit: contain; display: block; }
         .aufnr { font-family: "Courier New", monospace; font-size: 18px; font-weight: 700; }
 
-        .meta { font-size: 12px; color: #333; margin-bottom: 2mm; line-height: 1.7; }
+        .meta { font-size: 12px; color: #333; margin-bottom: 2mm; line-height: 1.4; }
 
-        .hr { border: none; border-top: 0.5px solid #bbb; margin: 5mm 0; }
+        .hr { border: none; border-top: 0.5px solid #bbb; margin: 3mm 0; }
 
-        .sec { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 2mm; }
-        .sec-big { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #666; margin-bottom: 2mm; }
+        .sec { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 1.5mm; }
+        .sec-big { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #666; margin-bottom: 1.5mm; }
 
-        .name { font-size: 18px; font-weight: 700; margin-bottom: 1mm; line-height: 1.2; }
-        .detail { font-size: 14px; color: #222; line-height: 1.5; margin-bottom: 0.5mm; }
+        .name { font-size: 18px; font-weight: 700; margin-bottom: 0.5mm; line-height: 1.15; }
+        .detail { font-size: 14px; color: #222; line-height: 1.3; margin-bottom: 0.5mm; }
         .mono { font-family: "Courier New", monospace; }
 
         /* GERÄT + SCHADEN – same prominent style */
@@ -137,9 +142,9 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           font-weight: 900;
           color: #000;
           border-bottom: 1px solid #000;
-          padding-bottom: 3mm;
-          margin-bottom: 3mm;
-          line-height: 1.15;
+          padding-bottom: 2mm;
+          margin-bottom: 2mm;
+          line-height: 1.1;
           letter-spacing: -0.01em;
           white-space: pre-wrap;
         }
@@ -148,9 +153,9 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           font-size: 13px;
           font-weight: 600;
           color: #000;
-          margin-top: 1.5mm;
+          margin-top: 1mm;
         }
-        .int-note { font-size: 11px; color: #666; font-style: italic; margin-top: 2mm; }
+        .int-note { font-size: 11px; color: #666; font-style: italic; margin-top: 1.5mm; }
 
         .status-row { display: flex; gap: 5mm; margin: 2mm 0; font-size: 13px; }
         .status-item { display: flex; gap: 2mm; align-items: center; }
@@ -162,8 +167,8 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         .reklamation-banner {
           background: #f59e0b;
           color: #000;
-          padding: 3mm 4mm;
-          margin: 3mm 0;
+          padding: 2mm 3mm;
+          margin: 0 0 2mm 0;
           font-size: 16px;
           font-weight: 900;
           border-radius: 2mm;
@@ -171,19 +176,28 @@ export default function LabelClient({ repair }: { repair: Repair }) {
         }
         .reklamation-banner .bezug { font-family: "Courier New", monospace; font-size: 14px; margin-left: 2mm; }
 
-        .kunde-notiz { font-size: 13px; color: #222; line-height: 1.5; margin-top: 2mm; padding: 2mm 3mm; background: #f9fafb; border-left: 2px solid #000; }
+        .kunde-notiz { font-size: 13px; color: #222; line-height: 1.3; margin-top: 1.5mm; padding: 1.5mm 2.5mm; background: #f9fafb; border-left: 2px solid #000; }
 
-        .price-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 2mm; line-height: 1.4; }
-        .price-total { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; padding-top: 3mm; margin-top: 2mm; border-top: 2px solid #000; line-height: 1.2; }
+        .price-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 1.5mm; line-height: 1.3; }
+        .price-total { display: flex; justify-content: space-between; font-size: 26px; font-weight: 900; padding-top: 2mm; margin-top: 1.5mm; border-top: 2px solid #000; line-height: 1.15; }
 
         @media print {
-          html, body { background: white; width: 148mm; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; }
+          html, body {
+            background: white;
+            width: 148mm;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.3;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
-          .page-wrap { padding: 0; }
-          .label { box-shadow: none; padding: 0; width: 100%; }
+          .page-wrap { padding: 0; margin: 0; }
+          .label { box-shadow: none; padding: 0; margin: 0; width: 100%; }
+          .label > *:first-child { margin-top: 0 !important; padding-top: 0 !important; }
           .geraet-text, .schaden-text { font-size: 24px; font-weight: 900; color: #000 !important; }
-          @page { size: A5; margin: 8mm; }
+          @page { size: A5; margin: 5mm 8mm 8mm 8mm; }
         }
       `}</style>
 
@@ -238,7 +252,7 @@ export default function LabelClient({ repair }: { repair: Repair }) {
           {repair.geraete_code && <div className="geraet-imei">PIN: {repair.geraete_code}</div>}
 
           {/* Schaden – same style as Gerät */}
-          <div className="sec-big" style={{ marginTop: "5mm" }}>Schaden</div>
+          <div className="sec-big" style={{ marginTop: "3mm" }}>Schaden</div>
           <div className="schaden-text">{repair.reparatur_problem}</div>
 
           {/* Status pills */}
