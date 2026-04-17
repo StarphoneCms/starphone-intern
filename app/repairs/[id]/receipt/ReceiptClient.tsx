@@ -101,7 +101,7 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
         }
         header, nav { display: none !important; }
 
-        .screen-controls {
+        .no-print {
           display: flex;
           justify-content: center;
           gap: 10px;
@@ -282,14 +282,14 @@ export default function ReceiptClient({ repair }: { repair: Repair }) {
 
         @media print {
           html, body { background: white; width: 148mm; font-family: Arial, sans-serif; font-size: 11px; }
-          .screen-controls { display: none !important; }
+          .no-print { display: none !important; }
           .page-wrap { padding: 0; }
           .receipt { box-shadow: none; min-height: auto; padding: 0; }
           @page { size: A5; margin: 10mm; }
         }
       `}</style>
 
-      <div className="screen-controls">
+      <div className="no-print">
         <button className="btn btn-black" onClick={() => window.print()}>Drucken</button>
         <button className="btn btn-white" onClick={() => window.close()}>Schließen</button>
       </div>

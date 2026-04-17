@@ -40,8 +40,8 @@ export default async function CustomersPage() {
 
   const [{ data: customers, error: customersError }, { data: repairs, error: repairsError }] =
     await Promise.all([
-      supabase.from("customers").select("*").order("created_at", { ascending: false }).limit(500),
-      supabase.from("repairs").select("id, customer_id, status, created_at").not("customer_id", "is", null).limit(2000),
+      supabase.from("customers").select("*").order("created_at", { ascending: false }),
+      supabase.from("repairs").select("id, customer_id, status, created_at").not("customer_id", "is", null),
     ]);
 
   if (customersError || repairsError) {

@@ -1,35 +1,29 @@
 "use client";
 
-// Pfad: src/app/repairs/[id]/PrintButtons.tsx
-
 type Props = {
   repairId: string;
 };
 
+function openA5Popup(url: string, name: string) {
+  // 148mm × 210mm ≈ 560px × 794px at 96dpi
+  const w = 560;
+  const h = 794;
+  const left = Math.round((screen.width - w) / 2);
+  const top = Math.round((screen.height - h) / 2);
+  window.open(
+    url,
+    name,
+    `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`
+  );
+}
+
 export function PrintButtons({ repairId }: Props) {
-  function openWerkstatt() {
-    window.open(`/repairs/${repairId}/print?type=werkstatt`, "_blank");
-  }
-
-  function openKundenbeleg() {
-    // 148mm × 210mm ≈ 560px × 794px at 96dpi
-    const w = 560;
-    const h = 794;
-    const left = Math.round((screen.width - w) / 2);
-    const top = Math.round((screen.height - h) / 2);
-    window.open(
-      `/repairs/${repairId}/receipt`,
-      "kundenbeleg",
-      `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`
-    );
-  }
-
   return (
     <div className="flex items-center gap-2">
-      {/* Werkstatt-Zettel */}
+      {/* Werkstattbeleg */}
       <button
-        onClick={openWerkstatt}
-        title="Werkstatt-Zettel drucken"
+        onClick={() => openA5Popup(`/repairs/${repairId}/label`, "werkstattbeleg")}
+        title="Werkstattbeleg drucken"
         className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -43,7 +37,7 @@ export function PrintButtons({ repairId }: Props) {
 
       {/* Kundenbeleg */}
       <button
-        onClick={openKundenbeleg}
+        onClick={() => openA5Popup(`/repairs/${repairId}/receipt`, "kundenbeleg")}
         title="Kundenbeleg drucken"
         className="h-8 px-3 rounded-lg border border-gray-200 text-[12px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
       >

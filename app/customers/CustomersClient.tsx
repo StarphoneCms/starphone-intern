@@ -2,7 +2,7 @@
 
 // Pfad: src/app/customers/CustomersClient.tsx
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusPill, RepairStatus } from "@/lib/repair-types";
@@ -51,6 +51,8 @@ export default function CustomersClient({ customers, totalOpenRepairs }: Props) 
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"alle" | "offen" | "neu">("alle");
+  const [page, setPage] = useState(0);
+  const perPage = 50;
 
   // ── Live Updates: Kunden + Reparaturen automatisch aktualisieren ──
   const refresh = () => router.refresh();
@@ -75,6 +77,13 @@ export default function CustomersClient({ customers, totalOpenRepairs }: Props) 
       );
     });
   }, [customers, search, filter]);
+
+  // Reset page when filter/search changes
+  useEffect(() => { setPage(0); }, [search, filter]);
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  const safePage = Math.min(page, Math.max(totalPages - 1, 0));
+  const paginated = filtered.slice(safePage * perPage, (safePage + 1) * perPage);
 
   return (
     <main className="min-h-screen bg-white">
@@ -177,7 +186,7 @@ export default function CustomersClient({ customers, totalOpenRepairs }: Props) 
 
               {/* Rows */}
               <div className="divide-y divide-gray-50">
-                {filtered.map((customer) => (
+                {paginated.map((customer) => (
                   <div
                     key={customer.id}
                     onClick={() => router.push(`/customers/${customer.id}`)}
@@ -237,9 +246,32 @@ export default function CustomersClient({ customers, totalOpenRepairs }: Props) 
         </div>
 
         {filtered.length > 0 && (
-          <p className="text-[11px] text-gray-300 mt-3 text-right">
-            {filtered.length} von {customers.length} Kunden
-          </p>
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-[11px] text-gray-300">
+              {safePage * perPage + 1}–{Math.min((safePage + 1) * perPage, filtered.length)} von {filtered.length} Kunden
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPage(Math.max(0, safePage - 1))}
+                  disabled={safePage === 0}
+                  className="h-7 px-2.5 rounded-md text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  Zurück
+                </button>
+                <span className="text-[11px] text-gray-400 px-1">
+                  {safePage + 1} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(Math.min(totalPages - 1, safePage + 1))}
+                  disabled={safePage >= totalPages - 1}
+                  className="h-7 px-2.5 rounded-md text-[11px] font-medium border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  Weiter
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </main>
