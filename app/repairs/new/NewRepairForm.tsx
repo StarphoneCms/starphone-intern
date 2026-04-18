@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { SignaturePad, SignaturePadHandle } from "./SignaturePad";
+import { SignatureModal } from "./SignaturePad";
 
 // ─── Konstanten ───────────────────────────────────────────────────────────────
 
@@ -163,7 +163,8 @@ export function NewRepairForm() {
   const [kundenAdresse,    setKundenAdresse]    = useState("");
   const [customerId,       setCustomerId]       = useState<string | null>(null);
 
-  const signatureRef     = useRef<SignaturePadHandle>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [showSigModal,     setShowSigModal]     = useState(false);
   // ── Fix 1: useRef mit null initialisieren ──
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -175,6 +176,17 @@ export function NewRepairForm() {
     else if (m.includes("ipad") || m.includes("tab")) setGeraetetyp("Tablet");
     else setGeraetetyp("Smartphone");
   }, [urlHersteller, urlModell]);
+
+  // Kunden-Prefill aus URL (?customer_id=…)
+  useEffect(() => {
+    const cid = searchParams.get("customer_id");
+    if (!cid) return;
+    fetch(`/api/customers/${cid}`)
+      .then(r => r.json())
+      .then(data => { if (data?.customer) selectCustomer(data.customer); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Berechnungen
   const reparaturPreis = parseFloat(manuellerPreis.replace(",", ".")) || 0;
@@ -248,7 +260,7 @@ export function NewRepairForm() {
     e.preventDefault();
 
     // 1. Unterschrift prüfen
-    const sig = signatureRef.current?.getSignature();
+    const sig = signatureDataUrl;
     const sigValid = sig && sig.trim() !== "" && sig !== "data:," && sig !== "data:image/png;base64,";
     if (!sigValid) {
       setSigError(true);
@@ -365,60 +377,6 @@ export function NewRepairForm() {
                       {FAECHER.map(f => <option key={f.fach} value={f.fach}>Fach {f.fach}{f.name ? ` – ${f.name}` : ""}</option>)}
                     </select>
                   </Field>
-                </div>
-              </SectionCard>
-
-              {/* ── Kunde ── */}
-              <SectionCard title="Kunde">
-                <div className="space-y-3">
-                  <div className="relative">
-                    <label className={labelClass}>Bestehenden Kunden suchen</label>
-                    {selectedCustomer ? (
-                      <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
-                        <div>
-                          <p className="text-[12.5px] font-medium text-green-800">✓ {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}</p>
-                          <p className="text-[11px] text-green-600">{selectedCustomer.phone ?? "—"}</p>
-                        </div>
-                        <button type="button" onClick={clearCustomer} className="text-[11px] text-gray-400 hover:text-gray-700">Ändern</button>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <input type="text" value={searchQuery} onChange={e => handleSearchChange(e.target.value)}
-                          onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
-                          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                          placeholder="Name, Telefon oder E-Mail …" className={inputClass} />
-                        {showDropdown && (
-                          <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
-                            {searching
-                              ? <div className="px-4 py-3 text-[12px] text-gray-400">Suche …</div>
-                              : searchResults.length === 0
-                                ? <div className="px-4 py-3 text-[12px] text-gray-400">Kein Kunde gefunden</div>
-                                : searchResults.map(c => (
-                                  <button key={c.id} type="button" onClick={() => selectCustomer(c)}
-                                    className="w-full px-4 py-2.5 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0">
-                                    <p className="text-[12.5px] font-medium text-gray-900">{[c.first_name, c.last_name].filter(Boolean).join(" ") || "Unbenannt"}</p>
-                                    <p className="text-[11px] text-gray-400">{c.phone ?? "—"} · {c.email ?? "—"}</p>
-                                  </button>
-                                ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Name / Firma" required>
-                      <input value={kundenName} onChange={e => setKundenName(e.target.value)} required placeholder="Max Mustermann" className={inputClass} />
-                    </Field>
-                    <Field label="Telefon">
-                      <input value={kundenTelefon} onChange={e => setKundenTelefon(e.target.value)} placeholder="+49 …" className={inputClass} />
-                    </Field>
-                    <Field label="E-Mail">
-                      <input type="email" value={kundenEmail} onChange={e => setKundenEmail(e.target.value)} placeholder="email@beispiel.de" className={inputClass} />
-                    </Field>
-                    <Field label="Adresse">
-                      <input value={kundenAdresse} onChange={e => setKundenAdresse(e.target.value)} placeholder="Straße, PLZ Stadt" className={inputClass} />
-                    </Field>
-                  </div>
                 </div>
               </SectionCard>
 
@@ -553,6 +511,60 @@ export function NewRepairForm() {
                 </div>
               </SectionCard>
 
+              {/* ── Kunde ── */}
+              <SectionCard title="Kunde">
+                <div className="space-y-3">
+                  <div className="relative">
+                    <label className={labelClass}>Bestehenden Kunden suchen</label>
+                    {selectedCustomer ? (
+                      <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+                        <div>
+                          <p className="text-[12.5px] font-medium text-green-800">✓ {[selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(" ")}</p>
+                          <p className="text-[11px] text-green-600">{selectedCustomer.phone ?? "—"}</p>
+                        </div>
+                        <button type="button" onClick={clearCustomer} className="text-[11px] text-gray-400 hover:text-gray-700">Ändern</button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input type="text" value={searchQuery} onChange={e => handleSearchChange(e.target.value)}
+                          onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                          placeholder="Name, Telefon oder E-Mail …" className={inputClass} />
+                        {showDropdown && (
+                          <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                            {searching
+                              ? <div className="px-4 py-3 text-[12px] text-gray-400">Suche …</div>
+                              : searchResults.length === 0
+                                ? <div className="px-4 py-3 text-[12px] text-gray-400">Kein Kunde gefunden</div>
+                                : searchResults.map(c => (
+                                  <button key={c.id} type="button" onClick={() => selectCustomer(c)}
+                                    className="w-full px-4 py-2.5 text-left hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                                    <p className="text-[12.5px] font-medium text-gray-900">{[c.first_name, c.last_name].filter(Boolean).join(" ") || "Unbenannt"}</p>
+                                    <p className="text-[11px] text-gray-400">{c.phone ?? "—"} · {c.email ?? "—"}</p>
+                                  </button>
+                                ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Name / Firma" required>
+                      <input value={kundenName} onChange={e => setKundenName(e.target.value)} required placeholder="Max Mustermann" className={inputClass} />
+                    </Field>
+                    <Field label="Telefon">
+                      <input value={kundenTelefon} onChange={e => setKundenTelefon(e.target.value)} placeholder="+49 …" className={inputClass} />
+                    </Field>
+                    <Field label="E-Mail">
+                      <input type="email" value={kundenEmail} onChange={e => setKundenEmail(e.target.value)} placeholder="email@beispiel.de" className={inputClass} />
+                    </Field>
+                    <Field label="Adresse">
+                      <input value={kundenAdresse} onChange={e => setKundenAdresse(e.target.value)} placeholder="Straße, PLZ Stadt" className={inputClass} />
+                    </Field>
+                  </div>
+                </div>
+              </SectionCard>
+
               {/* ── Reparaturpreis ── */}
               <SectionCard title="Reparaturpreis"
                 badge={urlGesamtpreis > 0
@@ -644,7 +656,30 @@ export function NewRepairForm() {
                     <label className={labelClass}>
                       Unterschrift Kunde <span className="text-red-400">*</span>
                     </label>
-                    <SignaturePad ref={signatureRef} />
+                    {signatureDataUrl ? (
+                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                        <img
+                          src={signatureDataUrl}
+                          alt="Unterschrift"
+                          className="h-16 w-auto max-w-[220px] object-contain border border-gray-100 rounded-md bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { setShowSigModal(true); setSigError(false); }}
+                          className="ml-auto h-8 px-3 rounded-lg border border-gray-200 text-[11.5px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Ändern
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setShowSigModal(true); setSigError(false); }}
+                        className="w-full h-14 rounded-lg border-2 border-dashed border-gray-300 bg-white text-[13px] font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        ✍️ Unterschrift erfassen →
+                      </button>
+                    )}
                     {sigError && (
                       <p className="text-[12px] text-red-500 mt-1.5">
                         Unterschrift des Kunden ist Pflicht.
@@ -765,6 +800,16 @@ export function NewRepairForm() {
           </div>
         </form>
       </div>
+
+      <SignatureModal
+        open={showSigModal}
+        onClose={() => setShowSigModal(false)}
+        onConfirm={(dataUrl) => {
+          setSignatureDataUrl(dataUrl);
+          setSigError(false);
+          setShowSigModal(false);
+        }}
+      />
     </main>
   );
 }

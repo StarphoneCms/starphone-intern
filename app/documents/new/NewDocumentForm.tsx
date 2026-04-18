@@ -205,12 +205,15 @@ export default function NewDocumentForm({ prefillType, repairId }: FormProps) {
       // Zusatzverkauf
       if (repair.zusatzverkauf_items) {
         try {
-          const extras: { name: string; preis: number }[] =
+          const extras: { label?: string; variante?: string; name?: string; preis: number }[] =
             typeof repair.zusatzverkauf_items === "string"
               ? JSON.parse(repair.zusatzverkauf_items)
               : repair.zusatzverkauf_items;
-          extras.forEach((ext, i) => {
-            const eb = { position: newItems.length + 1, description: ext.name, details: "", quantity: 1, unit: "Stk.", unit_price: Number(ext.preis) || 0, discount: 0, discount_type: "percent" as const, tax_rate: 19 };
+          extras.forEach((ext) => {
+            const desc = ext.label
+              ? `${ext.label}${ext.variante ? ` ${ext.variante}` : ""}`
+              : ext.name ?? "";
+            const eb = { position: newItems.length + 1, description: desc, details: "", quantity: 1, unit: "Stk.", unit_price: Number(ext.preis) || 0, discount: 0, discount_type: "percent" as const, tax_rate: 19 };
             newItems.push({ ...eb, ...calcItem(eb) });
           });
         } catch {}
