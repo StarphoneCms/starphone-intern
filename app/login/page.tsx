@@ -107,7 +107,7 @@ function LoginForm() {
             priority
             className="h-10 w-auto mb-4"
           />
-          <h1 className="text-[18px] font-semibold text-slate-900">Starphone Intern</h1>
+          <h1 className="text-[18px] font-semibold text-slate-900">STAR:OS</h1>
           <p className="text-[12px] text-slate-400 mt-1">Werkstatt · Kunden · Aufträge</p>
         </div>
 

@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Starphone Verwaltung",
-  description: "Interne Werkstattverwaltung für Starphone",
+  title: "STAR:OS",
+  description: "Internes Verwaltungssystem für Starphone Aachen",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Starphone",
+    title: "STAR:OS",
   },
   other: {
     "mobile-web-app-capable": "yes",

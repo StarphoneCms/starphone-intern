@@ -1,7 +1,7 @@
 {
-  "name": "Starphone CMS",
-  "short_name": "Starphone",
-  "description": "Starphone Werkstatt Management",
+  "name": "STAR:OS",
+  "short_name": "STAR:OS",
+  "description": "Starphone Aachen · Internes System",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
